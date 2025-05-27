@@ -114,4 +114,6 @@ if __name__ == '__main__':
         callbacks=[checkpoint_callback],
     )
     
+    trainer.fit(model, pretraining_dataloader)
+    
     logger.success('Training is finished.')
