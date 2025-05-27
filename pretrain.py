@@ -82,7 +82,7 @@ if __name__ == '__main__':
     
     if args.model == 'mae':
         model = make_mae_model(cfg, args)
-        logger.success(args.model, " is built.")
+        logger.success(f'MAE model {args.model} is created.')
         pretraining_dataloader, pretrain_dataset = make_mae_pretraining_dataloaders(cfg, args)
     
     # Save all configs and args (just in case)
