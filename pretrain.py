@@ -74,7 +74,7 @@ if __name__ == '__main__':
     
     wandb_logger =  WandbLogger(project="[DAMIT NEW] Pre-training", 
                                name=FILENAME_POSTFIX, 
-                               tags=[args.model, aug_prefix, str(args.mask_ratio), args.dataset], 
+                               tags=[args.model, aug_prefix, str(args.mask_ratio), args.datasets], 
                                config=cfg)
     
     # Monai logs foldernames
