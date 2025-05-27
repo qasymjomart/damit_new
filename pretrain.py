@@ -93,7 +93,7 @@ if __name__ == '__main__':
     model = LitMAE(model, 
                    mask_ratio=args.mask_ratio,
                    epochs=cfg['TRAINING']['EPOCHS'],
-                   hparams=cfg)
+                   optimizer_hparams=cfg['SOLVER'])
     
     checkpoint_callback = ModelCheckpoint(
             monitor='loss',
