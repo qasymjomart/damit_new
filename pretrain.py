@@ -22,6 +22,10 @@ from lits import LitMAE
 from dataloaders.make_dataloaders import make_mae_pretraining_dataloaders
 from models.make_models import make_mae_model
 
+# turn off warnings
+import warnings
+warnings.filterwarnings("ignore")
+
 # Set the seed
 def set_seed(seed):
     torch.manual_seed(seed)
@@ -70,7 +74,7 @@ if __name__ == '__main__':
     print('Process number: %d'%(os.getpid()))
 
     aug_prefix = 'aug' if args.use_aug else 'noaug'
-    FILENAME_POSTFIX = f'{args.savename}_{args.model}_{int(args.mask_ratio*100)}_seed_{args.seed}'
+    FILENAME_POSTFIX = f'{args.savename}_{args.model}_{int(args.mask_ratio*100)}_d_{"_".join(args.datasets)}_seed_{args.seed}'
     
     wandb_logger =  WandbLogger(project="[DAMIT NEW] Pre-training", 
                                name=FILENAME_POSTFIX, 

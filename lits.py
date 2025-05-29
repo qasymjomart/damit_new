@@ -21,12 +21,12 @@ class LitMAE(L.LightningModule):
                                    'weight_decay': 0.0001,
                                    'warmup_epochs': 40,
                                    'min_lr': 0.0000001,
-                                   'betas': (0.9, 0.95)})
+                                   'betas': [0.9, 0.95]})
         
         self.save_hyperparameters()
         
-    def forward(self, inputs):
-        return self.model(inputs)
+    def forward(self, inputs, mask_ratio=0.75):
+        return self.model(inputs, mask_ratio=mask_ratio)
     
     def training_step(self, batch, batch_idx):
         x = batch['image']
@@ -38,9 +38,9 @@ class LitMAE(L.LightningModule):
                 
     def configure_optimizers(self):
         return torch.optim.AdamW(filter(lambda p: p.requires_grad, self.parameters()), 
-                                      lr=self.optimizer_hparams['SOLVER']['lr'], 
-                                      weight_decay=self.optimizer_hparams['SOLVER']['weight_decay'],
-                                      betas=self.optimizer_hparams['SOLVER']['betas'])
+                                      lr=self.optimizer_hparams['lr'], 
+                                      weight_decay=self.optimizer_hparams['weight_decay'],
+                                      betas=(self.optimizer_hparams['betas']))
              
     def on_train_epoch_start(self):
         # Adjust learning rate before the training epoch starts
@@ -48,13 +48,13 @@ class LitMAE(L.LightningModule):
         
     def _adjust_learning_rate_halfcosine(self):
         """Decay the learning rate with half-cycle cosine after warmup"""
-        if self.current_epoch < self.optimizer_hparams['SOLVER']['warmup_epochs']:
-            lr = self.hparams['SOLVER']['lr'] * self.current_epoch / self.optimizer_hparams['SOLVER']['warmup_epochs'] 
+        if self.current_epoch < self.optimizer_hparams['warmup_epochs']:
+            lr = self.optimizer_hparams['lr'] * self.current_epoch / self.optimizer_hparams['warmup_epochs'] 
         else:
-            lr = self.optimizer_hparams['SOLVER']['min_lr'] + \
-                (self.optimizer_hparams['SOLVER']['lr'] - self.optimizer_hparams['SOLVER']['min_lr']) * 0.5 * \
-                (1. + torch.cos(torch.pi * (self.current_epoch - self.optimizer_hparams['SOLVER']['warmup_epochs']) / \
-                (self.epochs - self.optimizer_hparams['SOLVER']['warmup_epochs'])))
+            lr = self.optimizer_hparams['min_lr'] + \
+                (self.optimizer_hparams['lr'] - self.optimizer_hparams['min_lr']) * 0.5 * \
+                (1. + torch.cos(torch.tensor(torch.pi * (self.current_epoch - self.optimizer_hparams['warmup_epochs'])) / \
+                (self.epochs - self.optimizer_hparams['warmup_epochs'])))
         for param_group in self.optimizers().param_groups:
             if "lr_scale" in param_group:
                 param_group["lr"] = lr * param_group["lr_scale"]
