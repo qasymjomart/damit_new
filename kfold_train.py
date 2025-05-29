@@ -175,7 +175,9 @@ if __name__ == '__main__':
         model = prepare_model_for_training(model, cfg)
         
         # Initialize loss function (with weight balance)
-        class_numbers = ratios_train['CN']*[0] + ratios_train['AD']*[1]
+        class_numbers = []
+        for class_name in args.classes_to_use:
+            class_numbers += [args.classes_to_use.index(class_name)] * ratios_train[class_name]
         class_weights = compute_class_weight(class_weight='balanced', classes=np.unique(class_numbers), y=class_numbers)
         class_weights = torch.Tensor(class_weights).cuda()
         logger.info(f'Class weights: {class_weights}')
@@ -204,6 +206,7 @@ if __name__ == '__main__':
             monitor='val_acc',
             dirpath=f'checkpoints/{FILENAME}/fold_{i}/',
             filename='best-{epoch:02d}',
+            save_weights_only=True,
             save_top_k=1,
             mode='max',
             save_last=True,
