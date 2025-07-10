@@ -1,10 +1,9 @@
-from math import pi, log
+from math import pi
 from functools import wraps
 
 import torch
 from torch import nn, einsum
 import torch.nn.functional as F
-from loguru import logger
 
 from einops import rearrange, repeat
 from einops.layers.torch import Reduce

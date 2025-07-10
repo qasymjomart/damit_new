@@ -7,9 +7,6 @@ Created on Wed Feb 8 2023
 
 from __future__ import print_function, division
 import numpy as np
-import matplotlib.pyplot as plt
-import nibabel as nib
-from PIL import Image
 # from skimage import io, color, segmentation
 
 import os
@@ -23,10 +20,7 @@ import wandb
 
 import torch
 import torch.nn as nn
-from torch.autograd import Variable
 from torch.cuda import amp
-from torchvision import transforms
-from torch.utils.data import Dataset, DataLoader
 
 from torch.utils.tensorboard import SummaryWriter
 

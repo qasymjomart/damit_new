@@ -12,20 +12,13 @@ https://github.com/CDTrans/CDTrans
 """
 
 import math
-import copy
-from functools import partial
-from itertools import repeat
 import numpy as np
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
-import torchvision
 
 # from .resnetv2 import ResNetV2
-from .convnets import UNet3DEncoder
-from .pe import PatchEmbed, PatchEmbed3X, ProgressivePatchEmbed, ProgressivePatchEmbed3D
 
 from utils.weight_init import trunc_normal_, init_weights_vit_timm, get_init_weights_vit, named_apply
 from utils.utils import get_3d_sincos_pos_embed

@@ -8,20 +8,16 @@ Based on https://www.kaggle.com/bigironsphere/loss-function-library-keras-pytorc
 """
 
 from __future__ import print_function, division
-import numpy as np
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.autograd import Variable
 
 # Copyright (c) 2015-present, Facebook, Inc.
 # All rights reserved.
 """
 Implements the knowledge distillation loss
 """
-import torch
-from torch.nn import functional as F
 
 
 class DistillationLoss(torch.nn.Module):

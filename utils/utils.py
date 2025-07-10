@@ -12,8 +12,6 @@ import numpy as np
 
 import torch
 from sklearn.metrics import roc_auc_score
-from sklearn.base import TransformerMixin
-from sklearn.preprocessing import MinMaxScaler
 
 import timm
 
@@ -253,7 +251,7 @@ def adjust_learning_rate_halfcosine(optimizer, epoch, cfg):
             param_group["lr"] = lr
     return
 
-def load_pretrained_checkpoint(model, pre_trained_model_path, checkpoint_type=None):
+def load_pretrained_checkpoint(model, pre_trained_model_path, pt_type='MAE', checkpoint_type=None):
     """Loading (transferring) pre-trained MAE model weights
 
     Parameters
@@ -263,70 +261,12 @@ def load_pretrained_checkpoint(model, pre_trained_model_path, checkpoint_type=No
     pre_trained_model_path : str
         path to the pre-trained models checkpoint
     """
-    if pre_trained_model_path == 'imagenet_weights/':
+    if pt_type == 'MAE':
+        checkpoint = torch.load(pre_trained_model_path, map_location='cpu')
+        print("Loaded pre-trained checkpoint from: %s" % pre_trained_model_path)
+        checkpoint_model = checkpoint['net']
         keys_to_remove = ['head.weight', 'head.bias', 'pos_embed', 'patch_embed.proj.weight', 'patch_embed.proj.bias']
-        # keys_to_remove = ['head.weight', 'head.bias', 'pos_embed']
-        # checkpoint_model = timm.create_model('vit_large_patch16_224').state_dict()
-        checkpoint_model = timm.create_model('vit_base_patch16_224').state_dict()
-        # checkpoint_model = timm.create_model('vit_small_patch16_224').state_dict()
-        print('Loaded ImageNet pre-trained checkpoint')
-    elif pre_trained_model_path == 'sam_weights/':
-        keys_to_remove = ['pos_embed', 'patch_embed.proj.weight', 'patch_embed.proj.bias']
-        checkpoint_model = torch.load('./checkpoints/sam_vit_b_01ec64.pth', map_location='cpu')
-
-        for name, param in checkpoint_model.items():
-            if name.startswith('image_encoder'):
-                if name[14:] not in model.state_dict():
-                    continue
-                if name[14:] in keys_to_remove:
-                    continue
-                if isinstance(param, torch.nn.parameter.Parameter):
-                    param = param.data
-                try:
-                    model.state_dict()[name[14:]].copy_(param)
-                except:
-                    print('Incompatible key: ', name[14:])
-        
-        print('Loaded SAM pre-trained checkpoint')
-        return model
     
-    elif pre_trained_model_path == 'simmim/':
-        checkpoint = torch.load(pre_trained_model_path, map_location='cpu')
-        print("Loaded pre-trained SimMIM checkpoint from: %s" % pre_trained_model_path)
-        params_to_remove = ['fc.1.weight', 'fc.1.bias']
-        checkpoint_model = checkpoint['net']
-
-        for name, param in checkpoint_model.items():
-            if name[8:] not in model.state_dict():
-                continue
-            if name[8:] in params_to_remove:
-                continue
-            if isinstance(param, torch.nn.parameter.Parameter):
-                param = param.data
-            print(name[8:])
-            model.state_dict()[name[8:]].copy_(param)
-        return model
-    elif 'convnext' in pre_trained_model_path:
-        checkpoint = torch.load(pre_trained_model_path, map_location='cpu')
-        print("Loaded pre-trained checkpoint from: %s" % pre_trained_model_path)
-        checkpoint_model = checkpoint['net']
-        from collections import OrderedDict
-        state_dict = OrderedDict()
-        
-        for k, v in checkpoint_model.items():
-            if 'encoder' in k:
-                state_dict[k.replace('encoder.', '')] = v
-        
-        missing_keys = model.load_state_dict(state_dict, strict=True)
-        print(missing_keys)
-        
-        return model
-    else:
-        checkpoint = torch.load(pre_trained_model_path, map_location='cpu')
-        print("Loaded pre-trained checkpoint from: %s" % pre_trained_model_path)
-        checkpoint_model = checkpoint['net']
-        keys_to_remove = ['head.weight', 'head.bias', 'pos_embed', 'patch_embed.proj.weight', 'patch_embed.proj.bias']
-
     state_dict = model.state_dict()
         
     for k in keys_to_remove:

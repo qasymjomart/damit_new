@@ -4,14 +4,9 @@ https://github.com/rwightman/pytorch-image-models/blob/master/timm/models/vision
 '''
 import math
 import numpy as np
-import logging
-from functools import partial
-from collections import OrderedDict
-from copy import deepcopy
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 from .vit3d import Block, PatchEmbed3D
 

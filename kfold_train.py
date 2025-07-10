@@ -54,7 +54,6 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', type=str, help='Dataset')
     parser.add_argument('--seed', type=int, help='Experiment seed (for reproducible results)')
     parser.add_argument('--devices', type=str, help='GPU devices to use')
-    parser.add_argument('--iter_start', default=0, type=int, help='Starting iteration count of training')
     parser.add_argument('--patch_embed_fun', type=str, default='conv3d', help='Patch embed function to use')
     parser.add_argument('--checkpoint', default='./checkpoints/', type=str, help='Checkpoint model path')
     parser.add_argument('--epochs', type=int, default=50, help='Epochs')

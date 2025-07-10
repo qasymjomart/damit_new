@@ -7,19 +7,17 @@ Created on Sun May 28 2023
 
 from __future__ import print_function, division
 import numpy as np
-import nibabel as nib
 import pandas as pd
 import shutil
 
-import os, gc
-import glob
+import os
+import gc
 import json
 from datetime import datetime
 import argparse
 from loguru import logger as loguru_logger
 import random
 import yaml
-import logging
 import wandb
 from sklearn.model_selection import StratifiedKFold
 from sklearn.utils.class_weight import compute_class_weight
@@ -31,7 +29,7 @@ from torch.cuda import amp
 from dataloaders.make_dataloaders import make_kfold_dataloaders
 from models.make_models import make_model
 from do_train import do_train, do_inference
-from utils.utils import EarlyStopping, load_pretrained_checkpoint
+from utils.utils import load_pretrained_checkpoint
 from utils.optimizers import make_optimizer
 from utils.prepare_model import prepare_model_for_training
 

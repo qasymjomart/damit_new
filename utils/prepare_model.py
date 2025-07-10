@@ -3,10 +3,7 @@
 
 from loguru import logger
 from models.mlp import MLP
-from collections import OrderedDict
 
-import torch
-import torch.nn as nn
 
 def prepare_model_for_training(model, cfg):
     """

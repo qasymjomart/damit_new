@@ -12,8 +12,6 @@ import numpy as np
 
 import torch
 from sklearn.metrics import roc_auc_score
-from sklearn.base import TransformerMixin
-from sklearn.preprocessing import MinMaxScaler
 
 import timm
 

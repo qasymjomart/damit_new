@@ -5,14 +5,9 @@ Based on also: https://github.com/KMnP/vpt/blob/main/src/models/vit_models.py
 '''
 import math
 import numpy as np
-import logging
-from functools import partial
-from collections import OrderedDict
-from copy import deepcopy
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 from .vit3d import Block, PatchEmbed3D
 from .convnets import make_resnet1523d

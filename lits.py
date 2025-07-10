@@ -103,6 +103,12 @@ class LitViT(L.LightningModule):
             checkpoint_model = checkpoint['net']
         elif pre_trained_model_path.endswith('.ckpt'):
             checkpoint_model = checkpoint['state_dict']
+            for key in list(checkpoint_model.keys()):
+                if key.startswith('student.'):
+                    checkpoint_model[key[len('student.'):]] = checkpoint_model.pop(key)
+            for key in list(checkpoint_model.keys()):
+                if key.startswith('backbone.'):
+                    checkpoint_model[key[len('backbone.'):]] = checkpoint_model.pop(key)
         # remove keys that are not in the model
         keys_to_remove = ['head.weight', 'head.bias', 'pos_embed', 'patch_embed.proj.weight', 'patch_embed.proj.bias']
         state_dict = self.model.state_dict()

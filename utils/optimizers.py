@@ -6,20 +6,9 @@ Created on Wed Feb 8 2023
 """
 
 from __future__ import print_function, division
-import numpy as np
-import matplotlib.pyplot as plt
-import nibabel as nib
 
-from time import time
-from datetime import datetime
-from tqdm import tqdm
-from natsort import natsorted
 
 import torch
-import torch.nn as nn
-from torch.autograd import Variable
-from torchvision import transforms
-from torch.utils.data import Dataset, DataLoader
 
 from timm.scheduler import CosineLRScheduler
 

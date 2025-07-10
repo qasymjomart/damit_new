@@ -1,10 +1,10 @@
-import os, glob, sys
+import os
+import glob
 import numpy as np
 import pandas as pd
 import cv2
 import matplotlib.pyplot as plt
 from sklearn.model_selection import StratifiedKFold
-import nibabel as nib
 import yaml
 import random
 import monai
@@ -13,10 +13,8 @@ from tqdm import tqdm
 from loguru import logger
 
 import torch
-import torch.nn.functional as F
 
 from models.vit3d import Vision_Transformer3D
-from utils.utils import load_pretrained_checkpoint
 
 def set_seed(seed):
     torch.manual_seed(seed)

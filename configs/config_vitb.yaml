@@ -35,13 +35,13 @@ MODEL:
 MODE: 'full'
 
 ADNI1:
-  dataroot: "/SSD2/guest/qasymjomart/data/ADNI1_preprocessed_arranged/"
-  labelsroot: "/SSD2/guest/qasymjomart/data/ADNI1_15T_UNIQUE.csv"
+  dataroot: "/SSD/qasymjomart/uda/data/ADNI1_preprocessed_arranged/"
+  labelsroot: "/SSD/qasymjomart/uda/data/ADNI1_15T_UNIQUE.csv"
   mode: 'training'
 
 ADNI2:
-  dataroot: "/SSD2/guest/qasymjomart/data/ADNI2/"
-  labelsroot: "/SSD2/guest/qasymjomart/data/adni2_unique_sorted_13022023.csv"
+  dataroot: "/SSD/qasymjomart/uda/data/ADNI2/"
+  labelsroot: "/SSD/qasymjomart/uda/data/adni2_unique_sorted_13022023.csv"
   mode: 'training'
 
 DATALOADER:

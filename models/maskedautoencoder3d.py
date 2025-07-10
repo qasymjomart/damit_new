@@ -7,10 +7,6 @@ Based primarily on original implementation on https://github.com/facebookresearc
 
 """
 import numpy as np
-import math
-import copy
-from functools import partial
-from itertools import repeat
 
 import torch
 import torch.nn as nn

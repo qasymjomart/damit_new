@@ -12,18 +12,12 @@ https://github.com/CDTrans/CDTrans
 """
 
 
-import math
-import copy
-from functools import partial
-from itertools import repeat
-import numpy as np
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 # from .resnetv2 import ResNetV2
-from .convnets import UNet3DEncoder, ResNet50PE, UNet2DEncoder
+from .convnets import ResNet50PE, UNet2DEncoder
 
 class PatchEmbed2D(nn.Module):
     """

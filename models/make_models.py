@@ -5,17 +5,6 @@ Created on Wed Feb 8 2023
 @author: qasymjomart
 """
 
-from __future__ import print_function, division
-import numpy as np
-import matplotlib.pyplot as plt
-import nibabel as nib
-import math
-from PIL import Image
-from skimage import io, color, segmentation
-
-from tqdm import tqdm
-from natsort import natsorted
-
 import monai
 
 # from make_dataloaders import make_dataloaders
@@ -25,7 +14,6 @@ from .adapter_vit3d import Adapter_ViT3D
 from .side_vit3d import SideTune_ViT3D
 from .maskedautoencoder3d import MaskedAutoencoderViT3D
 from .convnets import make_resnet503d, make_resnet1013d, make_resnet1523d, make_densenet2013d, UNet3DEncoderClassifier, MyPEConv3d
-from utils.utils import copy_imagenet_weights
 
 # from perceiver_pytorch import Perceiver
 from .perceiver import Perceiver
