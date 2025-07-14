@@ -214,6 +214,15 @@ def clip_gradients(model, clip):
 
 ### From iBOT github repo https://github.com/bytedance/ibot/blob/main/utils.py ###
 
+def accuracy(output, target, topk=(1,)):
+    """Computes the accuracy over the k top predictions for the specified values of k"""
+    maxk = max(topk)
+    batch_size = target.size(0)
+    _, pred = output.topk(maxk, 1, True, True)
+    pred = pred.t()
+    correct = pred.eq(target.reshape(1, -1).expand_as(pred))
+    return [correct[:k].reshape(-1).float().sum(0) * 100. / batch_size for k in topk]
+
 class iBOTLoss(nn.Module):
     def __init__(self, out_dim, patch_out_dim, ngcrops, nlcrops, warmup_teacher_temp, 
                  teacher_temp, warmup_teacher_temp2, teacher_temp2, 

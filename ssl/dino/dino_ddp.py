@@ -21,6 +21,8 @@ import json
 import numpy as np
 import yaml
 import math
+import wandb
+
 import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
@@ -33,7 +35,7 @@ from dino_head import DINOHead
 from vit3d import Vision_Transformer3D
 from data_utils import make_dino_dataloaders
 
-import lightning as L
+# import lightning as L
 vits_dict = {
     'vit_base': Vision_Transformer3D,
 }
@@ -79,10 +81,12 @@ def train_dino():
     f_config = open(args.config_file,'rb')
     cfg = yaml.load(f_config, Loader=yaml.FullLoader)
     os.environ["CUDA_VISIBLE_DEVICES"] = args.devices
-    args.devices = [int(d)-1 for d in args.devices.split(',')]
+    args.devices = [int(d) for d in args.devices.split(',')]
     
     os.makedirs(args.output_dir, exist_ok=True)
     FILENAME = f"DINO_pt_{args.savename}_{'_'.join(args.datasets)}_seed_{args.seed}"
+    run = wandb.init(project="DAMIT_NEW[DINO]", name=FILENAME, config=cfg, dir=os.path.join(args.output_dir, FILENAME),
+               tags=['DINO'], group=FILENAME)
     os.makedirs(os.path.join(args.output_dir, FILENAME), exist_ok=True)
     
     utils.init_distributed_mode(args)
@@ -209,6 +213,7 @@ def train_dino():
             utils.save_on_master(save_dict, os.path.join(args.output_dir, FILENAME, f'checkpoint{epoch:04}.pth'))
         log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
                      'epoch': epoch}
+        run.log(log_stats, step=epoch)
         if utils.is_main_process():
             with (Path(f"{args.output_dir}/{FILENAME}") / "log.txt").open("a") as f:
                 f.write(json.dumps(log_stats) + "\n")

@@ -2,7 +2,7 @@ model:
   arch: 'vit_base'
   patch_size: 16
   drop_path_rate: 0.1
-  out_dim: 65536
+  out_dim: 8192
   img_size: [128,128,128]
   in_chans: 1
   n_classes: 0
@@ -17,21 +17,37 @@ model:
   pos_embed_type: 'learnable'
   patch_embed_fun: 'conv3d'
 
-dino_head:
+ibot_model:
+  use_masked_im_modeling: True
+  pred_ratio: 0.3
+  pred_ratio_var: 0
+  pred_shape: block
+  pred_start_epoch: 0
+  lambda1: 1.0
+  lambda2: 1.0
+
+ibot_head:
+  patch_out_dim: 8192
+  shared_head: False # paper True?
+  shared_head_teacher: True
+  norm_in_head: None
+  norm_last_layer: True
+  act_in_head: 'gelu'
   use_bn: False
   in_dim: 768
-  out_dim: 65536
+  out_dim: 8192
 
-dino:
-  norm_last_layer: True
+ibot:
   momentum_teacher: 0.996
   warmup_teacher_temp: 0.04
   teacher_temp: 0.04
   warmup_teacher_temp_epochs: 30
+  warmup_teacher_patch_temp: 0.04
+  teacher_patch_temp: 0.07
 
 training:
   use_fp16: True
-  batch_size_per_gpu: 16
+  batch_size_per_gpu: 16 # paper value is 128
   batch_size: 16
   epochs: 100
   warmup_epochs: 10
@@ -39,7 +55,7 @@ training:
 
 optimizer:
   freeze_last_layer: 1
-  # lr: 0.0005
+  # lr: 0.0005 # paper value
   lr: 0.01
   warmup_epochs: 10
   min_lr: 0.000001
@@ -50,8 +66,9 @@ optimizer:
 
 transforms:
   local_crop_img_size: [64, 64, 64]
-  global_crops_scale: [0.4, 1.]
-  local_crops_number: 8
+  global_crops_number: 2 # paper?
+  global_crops_scale: [0.14, 1.] # check paper?
+  local_crops_number: 8 # if 0, then multi-crop training is disabled, also check paper
   local_crops_scale: [0.05, 0.4]
   orientation: "RAS"
   spacing: [1.75, 1.75, 1.75]

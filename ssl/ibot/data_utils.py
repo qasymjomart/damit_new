@@ -6,6 +6,8 @@ import monai
 import pandas as pd
 import os
 
+from loader import ImageFolderMask
+
 class Solarizationd(monai.transforms.MapTransform):
     def __init__(self, keys, prob=0.5, threshold=0.5):
         super().__init__(keys)
@@ -20,7 +22,7 @@ class Solarizationd(monai.transforms.MapTransform):
                 d[key] = torch.where(x >= self.threshold, 1.0 - x, x)
         return d
 
-class MONAIDataAugmentationDINO:
+class MONAIDataAugmentationiBOT:
     def __init__(self, 
                  resize=[128, 128, 128],
                  orientation="RAS",
@@ -28,6 +30,7 @@ class MONAIDataAugmentationDINO:
                  local_crop_img_size=[54, 54, 54],
                  global_crops_scale=(0.4, 1.), 
                  local_crops_scale=(0.05, 0.4),
+                 global_crops_number=2,
                  local_crops_number=8,
                  **kwargs):
         self.local_crops_number = local_crops_number
@@ -54,6 +57,7 @@ class MONAIDataAugmentationDINO:
             monai.transforms.NormalizeIntensityd(keys=["image"], nonzero=True),
         ])
         
+        self.global_crops_number = global_crops_number
         self.global_trans1 = monai.transforms.Compose([
             first_trans,
             monai.transforms.RandScaleCropd(keys=["image"], roi_scale=global_crops_scale[0], max_roi_scale=global_crops_scale[1],
@@ -94,7 +98,9 @@ class MONAIDataAugmentationDINO:
     def __call__(self, image):
         crops = []
         crops.append(self.global_trans1(image)['image'])
-        crops.append(self.global_trans2(image)['image'])
+        # crops.append(self.global_trans2(image)['image'])
+        for _ in range(self.global_crops_number - 1):
+            crops.append(self.global_trans2(image)['image'])
         for _ in range(self.local_crops_number):
             crops.append(self.local_trans(image)['image'])
         return crops
@@ -128,27 +134,48 @@ def get_dataset_list(datasets, cfg):
 
     return dataset_list
 
-def make_dino_dataloaders(cfg, datasets):
-    transform = MONAIDataAugmentationDINO(
+def make_ibot_dataloaders(cfg, datasets):
+    transform = MONAIDataAugmentationiBOT(
         **cfg['transforms']
     )
     
     dataset_list = get_dataset_list(datasets, cfg)
     print(f"Dataset list length: {len(dataset_list)}")
     
-    dataset = monai.data.PersistentDataset(
-        data=dataset_list,
-        transform=transform,
-        cache_dir=cfg['cache_dir']
-    )
+    # dataset = monai.data.PersistentDataset(
+    #     data=dataset_list,
+    #     transform=transform,
+    #     cache_dir=cfg['cache_dir']
+    # )
     
+    dataset = ImageFolderMask(
+        data=dataset_list, 
+        transform=transform,
+        cache_dir=cfg['cache_dir'],
+        patch_size=cfg['model']['patch_size'],
+        pred_ratio=cfg['ibot_model']['pred_ratio'],
+        pred_ratio_var=cfg['ibot_model']['pred_ratio_var'],
+        pred_aspect_ratio=(0.3, 1/0.3),
+        pred_shape=cfg['ibot_model']['pred_shape'],
+        pred_start_epoch=cfg['ibot_model']['pred_start_epoch'])
+    
+    # dataloader = torch.utils.data.DataLoader(
+    #     dataset,
+    #     batch_size=cfg['training']['batch_size'],
+    #     num_workers=cfg['data']['num_workers'],
+    #     shuffle=True,
+    #     pin_memory=True,
+    #     drop_last=True,
+    # )
+    
+    sampler = torch.utils.data.DistributedSampler(dataset, shuffle=True)
     dataloader = torch.utils.data.DataLoader(
         dataset,
-        batch_size=cfg['training']['batch_size'],
+        sampler=sampler,
+        batch_size=cfg['training']['batch_size_per_gpu'],
         num_workers=cfg['data']['num_workers'],
-        shuffle=True,
         pin_memory=True,
-        drop_last=True,
+        drop_last=True
     )
     
-    return dataset, dataloader
+    return dataset, sampler, dataloader
