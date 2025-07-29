@@ -5,15 +5,15 @@ import torch
 import wandb
 
 from data_utils import make_monai_dataset_for_simclr
-from models.vit3d_resnet import ViT3DSimCLR
+from models.vit3d_simclr import ViT3DSimCLR
 from simclr import SimCLR
 
 parser = argparse.ArgumentParser(description='PyTorch SimCLR')
-parser.add_argument('--config_file', type=str, default='configs_simclr.yaml', help='Name of the config file')
+parser.add_argument('--config_file', type=str, default='configs.yaml', help='Name of the config file')
 parser.add_argument('--savename', type=str, help='Experiment name (used for saving files)')
 parser.add_argument('--datasets', type=str, nargs='+', default=['IXI'], help='List of datasets to use for training')
-parser.add_argument('--seed', default=None, type=int, help='seed for initializing training. ')
-parser.add_argument('--devices', type=str, default="0,1,2,3", help='GPU devices to use')
+parser.add_argument('--seed', default=42, type=int, help='seed for initializing training. ')
+parser.add_argument('--devices', type=str, default="0", help='GPU devices to use')
 parser.add_argument('--output_dir', type=str, default='./checkpoints/', help='Directory to save output files')
 
 def main():
