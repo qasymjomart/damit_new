@@ -24,8 +24,21 @@ class ContrastiveLearningViewGenerator(object):
 
     def __call__(self, x):
         return [self.base_transform(x) for i in range(self.n_views)]
-                 
+
+def check_dirs_exist(cfg):
+    if not os.path.exists(cfg["BRATS2023"]["dataroot"]):
+        cfg["BRATS2023"]["dataroot"].replace("/SSD/", "/SSD/guest/")
+    if not os.path.exists(cfg["IXI"]["dataroot"]):
+        cfg["IXI"]["dataroot"].replace("/SSD/", "/SSD/guest/")
+    if not os.path.exists(cfg["HCP"]["dataroot"]):
+        cfg["HCP"]["dataroot"].replace("/SSD/", "/SSD/guest/")
+    if not os.path.exists(cfg["OASIS3"]["dataroot"]):
+        cfg["OASIS3"]["dataroot"].replace("/SSD/", "/SSD/guest/")
+    if not os.path.exists(cfg["OASIS3"]["labelsroot"]):
+        cfg["OASIS3"]["labelsroot"].replace("/SSD/", "/SSD/guest/")
+
 def get_dataset_list(datasets, cfg):
+    cfg = check_dirs_exist(cfg)
     datapath_list = []
     if "BRATS2023" in datasets:
         datapath_list = datapath_list + glob.glob(cfg["BRATS2023"]["dataroot"])

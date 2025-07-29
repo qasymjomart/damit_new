@@ -19,12 +19,10 @@ import utils
 from loguru import logger
 import torch
 import torch.nn as nn
-# import torch.distributed as dist
 import torch.backends.cudnn as cudnn
 
 from pathlib import Path
 from ibot_head import iBOTHead
-from evaluation import eval_pred
 
 from vit3d import Vision_Transformer3D
 from data_utils import make_ibot_dataloaders
@@ -70,7 +68,7 @@ def get_args():
     parser.add_argument('--datasets', type=str, nargs='+', default=['IXI'], help='List of datasets to use for training')
     parser.add_argument('--devices', type=str, default="0,1,2,3", help='GPU devices to use')
     parser.add_argument('--output_dir', type=str, default='./checkpoints/', help='Directory to save output files')
-    return parser
+    return parser.parse_args()
 
 def train_ibot():
     args = get_args()
@@ -78,7 +76,8 @@ def train_ibot():
     f_config = open(args.config_file,'rb')
     cfg = yaml.load(f_config, Loader=yaml.FullLoader)
     os.environ["CUDA_VISIBLE_DEVICES"] = args.devices
-    args.devices = [int(d)-1 for d in args.devices.split(',')]
+    # args.devices = [int(d)-1 for d in args.devices.split(',')]
+    args.devices = [0]
     
     os.makedirs(args.output_dir, exist_ok=True)
     FILENAME = f"iBOT_pt_{args.savename}_{'_'.join(args.datasets)}_seed_{args.seed}"
@@ -130,18 +129,18 @@ def train_ibot():
         teacher = nn.SyncBatchNorm.convert_sync_batchnorm(teacher)
 
         # we need DDP wrapper to have synchro batch norms working...
-        teacher = nn.parallel.DistributedDataParallel(teacher, device_ids=[args.gpu])
+        teacher = nn.parallel.DistributedDataParallel(teacher, device_ids=[args.devices])
         teacher_without_ddp = teacher.module
     else:
         # teacher_without_ddp and teacher are the same thing
         teacher_without_ddp = teacher
-    student = nn.parallel.DistributedDataParallel(student, device_ids=[args.gpu])
+    student = nn.parallel.DistributedDataParallel(student, device_ids=[args.devices])
     # teacher and student start with the same weights
     teacher_without_ddp.load_state_dict(student.module.state_dict(), strict=False)
     # there is no backpropagation through the teacher, so no need for gradients
     for p in teacher.parameters():
         p.requires_grad = False
-    logger.success(f"Student and Teacher are built: they are both {args.arch} network.")
+    logger.success("Student and Teacher are built: they are both ViT networks.")
 
     # ============ preparing loss ... ============
     same_dim = cfg['ibot_head']['shared_head'] or cfg['ibot_head']['shared_head_teacher']
@@ -163,12 +162,12 @@ def train_ibot():
         
     # ============ preparing optimizer ... ============
     params_groups = utils.get_params_groups(student)
-    if args.optimizer == "adamw":
+    if cfg['optimizer']['optimizer'] == "adamw":
         optimizer = torch.optim.AdamW(params_groups)  # to use with ViTs
     
     # for mixed precision training
     fp16_scaler = None
-    if args.use_fp16:
+    if cfg['training']['use_fp16']:
         fp16_scaler = torch.cuda.amp.GradScaler()
 
     # ============ init schedulers ... ============
@@ -258,15 +257,15 @@ def train_one_epoch(student, teacher, teacher_without_ddp, ibot_loss, data_loade
     params_q = [param_q for name_q, param_q in zip(names_q, params_q) if name_q in names_common]
     params_k = [param_k for name_k, param_k in zip(names_k, params_k) if name_k in names_common]
 
-    pred_labels, real_labels = [], []
-    for it, (images, labels, masks) in enumerate(metric_logger.log_every(data_loader, 10, header)):
+    # pred_labels, real_labels = [], []
+    for it, batches in enumerate(metric_logger.log_every(data_loader, 10, header)):
         # update weight decay and learning rate according to their schedule
         it = len(data_loader) * epoch + it  # global training iteration
         for i, param_group in enumerate(optimizer.param_groups):
             param_group["lr"] = lr_schedule[it]
             if i == 0:  # only the first group is regularized
                 param_group["weight_decay"] = wd_schedule[it]
-
+        images, masks = batches
         # move images to gpu
         images = [im.cuda(non_blocking=True) for im in images]
         masks = [msk.cuda(non_blocking=True) for msk in masks]        
@@ -295,8 +294,8 @@ def train_one_epoch(student, teacher, teacher_without_ddp, ibot_loss, data_loade
         pred1 = utils.concat_all_gather(probs1[0].max(dim=1)[1]) 
         pred2 = utils.concat_all_gather(probs2[1].max(dim=1)[1])
         acc = (pred1 == pred2).sum() / pred1.size(0)
-        pred_labels.append(pred1)
-        real_labels.append(utils.concat_all_gather(labels.to(pred1.device)))
+        # pred_labels.append(pred1)
+        # real_labels.append(utils.concat_all_gather(labels.to(pred1.device)))
 
         # student update
         optimizer.zero_grad()
@@ -333,15 +332,15 @@ def train_one_epoch(student, teacher, teacher_without_ddp, ibot_loss, data_loade
         metric_logger.update(wd=optimizer.param_groups[0]["weight_decay"])
         metric_logger.update(acc=acc)
 
-    pred_labels = torch.cat(pred_labels).cpu().detach().numpy()
-    real_labels = torch.cat(real_labels).cpu().detach().numpy()
-    nmi, ari, fscore, adjacc = eval_pred(real_labels, pred_labels, calc_acc=False)
+    # pred_labels = torch.cat(pred_labels).cpu().detach().numpy()
+    # real_labels = torch.cat(real_labels).cpu().detach().numpy()
+    # nmi, ari, fscore, adjacc = eval_pred(real_labels, pred_labels, calc_acc=False)
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
-    print("NMI: {}, ARI: {}, F: {}, ACC: {}".format(nmi, ari, fscore, adjacc))
+    # print("NMI: {}, ARI: {}, F: {}, ACC: {}".format(nmi, ari, fscore, adjacc))
     print("Averaged stats:", metric_logger)
     return_dict = {k: meter.global_avg for k, meter in metric_logger.meters.items()}
-    return_dict.update({"nmi": nmi, "ari": ari, "fscore": fscore, "adjacc": adjacc})
+    # return_dict.update({"nmi": nmi, "ari": ari, "fscore": fscore, "adjacc": adjacc})
     return return_dict
 
 if __name__ == '__main__':

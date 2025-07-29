@@ -27,6 +27,16 @@ def setup_for_distributed(is_master):
     __builtin__.print = print
 
 def init_distributed_mode(args):
+    # export NCCL_BLOCKING_WAIT=1
+    # export NCCL_IB_TIMEOUT=1000  # or higher
+    # export NCCL_TIMEOUT=5400     # seconds if supported
+    # export NCCL_P2P_LEVEL=NVL    # force NVLink communication where available
+    
+    os.environ['NCCL_BLOCKING_WAIT'] = '1'
+    os.environ['NCCL_IB_TIMEOUT'] = '1000'  # or higher
+    os.environ['NCCL_TIMEOUT'] = '5400'     # seconds if supported
+    os.environ['NCCL_P2P_LEVEL'] = 'NVL'    # force NVLink communication where available
+    
     args.dist_url = 'env://'
     # launched with torch.distributed.launch
     if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
@@ -53,6 +63,7 @@ def init_distributed_mode(args):
         init_method=args.dist_url,
         world_size=args.world_size,
         rank=args.rank,
+        timeout=datetime.timedelta(seconds=3600)
     )
 
     torch.cuda.set_device(args.gpu)
@@ -108,7 +119,7 @@ def save_on_master(*args, **kwargs):
 class DINOLoss(nn.Module):
     def __init__(self, out_dim, ncrops, warmup_teacher_temp, teacher_temp,
                  warmup_teacher_temp_epochs, nepochs, student_temp=0.1,
-                 center_momentum=0.9, ddp_mode=False):
+                 center_momentum=0.95, ddp_mode=False):
         super().__init__()
         self.student_temp = student_temp
         self.center_momentum = center_momentum

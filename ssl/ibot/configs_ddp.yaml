@@ -30,7 +30,7 @@ ibot_head:
   patch_out_dim: 8192
   shared_head: False # paper True?
   shared_head_teacher: True
-  norm_in_head: None
+  norm_in_head: null
   norm_last_layer: True
   act_in_head: 'gelu'
   use_bn: False

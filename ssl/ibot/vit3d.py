@@ -560,7 +560,7 @@ class Vision_Transformer3D(nn.Module):
         return len(self.blocks)
     
     def mask_model(self, x, mask):
-        x.permute(0, 2, 3, 1)[mask, :] = self.masked_embed.to(x.dtype)
+        x.permute(0, 2, 3, 4, 1)[mask, :] = self.masked_embed.to(x.dtype)
         return x
 
 # def init_weights_vit_timm(module: nn.Module, name: str = ''):

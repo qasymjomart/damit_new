@@ -14,10 +14,13 @@ class Solarizationd(monai.transforms.MapTransform):
 
     def __call__(self, data):
         d = dict(data)
+        imax, imin = d['image'].max(), d['image'].min()
+        threshold = (imax - imin) / 2 + imin
         for key in self.keys:
             if torch.rand(1).item() < self.prob:
                 x = d[key]
-                d[key] = torch.where(x >= self.threshold, 1.0 - x, x)
+                # d[key] = torch.where(x >= self.threshold, 1.0 - x, x)
+                d[key] = torch.where(x >= threshold, imax - x, x)
         return d
 
 class MONAIDataAugmentationDINO:
@@ -61,7 +64,7 @@ class MONAIDataAugmentationDINO:
             monai.transforms.Resized(keys=["image"], spatial_size=max_size, mode="trilinear"),
             rand_trans,
             monai.transforms.GaussianSmoothd(keys=["image"], sigma=1.0),
-            monai.transforms.ScaleIntensityd(keys=["image"]),
+            # monai.transforms.ScaleIntensityd(keys=["image"]),
             norm_trans
         ])
 
@@ -73,8 +76,8 @@ class MONAIDataAugmentationDINO:
                                             random_center=True, random_size=True),
             monai.transforms.Resized(keys=["image"], spatial_size=max_size, mode="trilinear"),
             rand_trans,
-            monai.transforms.GaussianSmoothd(keys=["image"], sigma=1.0),
-            monai.transforms.ScaleIntensityd(keys=["image"]),
+            monai.transforms.GaussianSmoothd(keys=["image"], sigma=0.1),
+            # monai.transforms.ScaleIntensityd(keys=["image"]),
             Solarizationd(keys=["image"], prob=0.2, threshold=0.5),
             norm_trans
         ])
@@ -85,8 +88,8 @@ class MONAIDataAugmentationDINO:
                                             random_center=True, random_size=True),
             monai.transforms.Resized(keys=["image"], spatial_size=tuple(local_crop_img_size), mode="trilinear"),
             rand_trans,
-            monai.transforms.GaussianSmoothd(keys=["image"], sigma=1.0),
-            monai.transforms.ScaleIntensityd(keys=["image"]),
+            monai.transforms.GaussianSmoothd(keys=["image"], sigma=0.5),
+            # monai.transforms.ScaleIntensityd(keys=["image"]),
             norm_trans
         ])
        
@@ -106,7 +109,7 @@ def get_dataset_list(datasets, cfg):
         print('Used BRATS2023')    
 
     if "IXI" in datasets:
-        datapath_list = datapath_list + glob.glob(cfg['IXI']['dataroot'])[:17]
+        datapath_list = datapath_list + glob.glob(cfg['IXI']['dataroot'])
     
     if "HCP" in datasets:
         datapath_list = datapath_list + glob.glob(cfg['HCP']['dataroot'])
@@ -134,8 +137,7 @@ def make_dino_dataloaders(cfg, datasets):
     )
     
     dataset_list = get_dataset_list(datasets, cfg)
-    print(f"Dataset list length: {len(dataset_list)}")
-    
+        
     dataset = monai.data.PersistentDataset(
         data=dataset_list,
         transform=transform,

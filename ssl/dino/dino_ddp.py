@@ -169,8 +169,9 @@ def train_dino():
     warmup_epochs = cfg['training']['warmup_epochs']
     momentum_teacher = cfg['dino']['momentum_teacher']
     
+    coeff_lr_div = 256. # originally it is 256.
     lr_schedule = utils.cosine_scheduler(
-        lr * (batch_size_per_gpu * utils.get_world_size()) / 256.,  # linear scaling rule
+        lr * (batch_size_per_gpu * utils.get_world_size()) / coeff_lr_div,  # linear scaling rule
         min_lr,
         epochs, len(data_loader),
         warmup_epochs=warmup_epochs,
@@ -221,6 +222,7 @@ def train_dino():
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     logger.info(f'Training time {total_time_str}')
+    utils.save_on_master(save_dict, os.path.join(args.output_dir, FILENAME, 'checkpoint_last.pth'))
     
     ##############################################
     ##############################################  
@@ -281,6 +283,7 @@ def train_one_epoch(student, teacher, teacher_without_ddp, dino_loss, data_loade
         metric_logger.update(loss=loss.item())
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
         metric_logger.update(wd=optimizer.param_groups[0]["weight_decay"])
+        torch.cuda.empty_cache()
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
     print("Averaged stats:", metric_logger)

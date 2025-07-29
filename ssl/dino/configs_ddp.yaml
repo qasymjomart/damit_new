@@ -1,8 +1,10 @@
 model:
   arch: 'vit_base'
   patch_size: 16
-  drop_path_rate: 0.1
-  out_dim: 65536
+  # drop_path_rate: 0.1
+  drop_path_rate: 0.4
+  # out_dim: 65536 # original value
+  out_dim: 4096
   img_size: [128,128,128]
   in_chans: 1
   n_classes: 0
@@ -20,33 +22,34 @@ model:
 dino_head:
   use_bn: False
   in_dim: 768
-  out_dim: 65536
+  # out_dim: 65536 # original value
+  out_dim: 4096
 
 dino:
   norm_last_layer: True
-  momentum_teacher: 0.996
-  warmup_teacher_temp: 0.04
-  teacher_temp: 0.04
+  momentum_teacher: 0.995 # original value
+  # warmup_teacher_temp: 0.04 # original value
+  warmup_teacher_temp: 0.02
+  teacher_temp: 0.04 # original val
   warmup_teacher_temp_epochs: 30
 
 training:
-  use_fp16: True
+  use_fp16: False
   batch_size_per_gpu: 16
-  batch_size: 16
+  batch_size: 64
   epochs: 100
   warmup_epochs: 10
   saveckp_freq: 20
 
 optimizer:
   freeze_last_layer: 1
-  # lr: 0.0005
-  lr: 0.01
+  lr: 0.0005 # original value
   warmup_epochs: 10
   min_lr: 0.000001
   optimizer: 'adamw'
   weight_decay: 0.04
   weight_decay_end: 0.4
-  clip_grad: 3.0
+  clip_grad: 3.0 # original value
 
 transforms:
   local_crop_img_size: [64, 64, 64]

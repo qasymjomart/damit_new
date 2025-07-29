@@ -10,7 +10,7 @@ import numpy as np
 
 import monai
 
-from torchvision.datasets import ImageFolder
+# from torchvision.datasets import ImageFolder
 
 # class ImageFolderInstance(ImageFolder):
 #     def __getitem__(self, index):
@@ -55,7 +55,8 @@ class ImageFolderMask(monai.data.PersistentDataset):
 
     def __getitem__(self, index):
         output = super(ImageFolderMask, self).__getitem__(index)
-                
+        output = tuple([output])
+                        
         masks = []
         for img in output[0]:
             try:
@@ -122,5 +123,5 @@ class ImageFolderMask(monai.data.PersistentDataset):
                 assert False
 
             masks.append(mask)
-
+        
         return output + (masks,)
