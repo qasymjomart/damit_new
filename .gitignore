@@ -173,6 +173,7 @@ cython_debug/
 checkpoints/
 logs/
 monai_logs/
+monai_cache/
 runs/
 wandb/
 notebooks/
