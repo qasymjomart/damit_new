@@ -1,0 +1,69 @@
+model:
+  arch: 'vit_base'
+  patch_size: 16
+  drop_path_rate: 0.1
+  img_size: [128,128,128]
+  in_chans: 1
+  n_classes: 0
+  embed_dim: 768
+  depth: 12
+  n_heads: 12
+  mlp_ratio: 4.0
+  qkv_bias: False
+  p: 0.
+  attn_p: 0.
+  global_avg_pool: False
+  pos_embed_type: 'learnable'
+  patch_embed_fun: 'conv3d'
+
+simclr:
+  n_views: 2
+  out_dim: 128
+  log_every_n_steps: 100
+  temperature: 0.07
+
+
+training:
+  use_fp16: True
+  batch_size: 256
+  epochs: 200
+  warmup_epochs: 10
+
+optimizer:
+  freeze_last_layer: 1
+  lr: 0.0003
+  warmup_epochs: 10
+  min_lr: 0.000001
+  optimizer: 'adamw'
+  weight_decay: 0.0001
+  weight_decay_end: 0.4
+  clip_grad: 3.0
+
+transforms:
+  local_crop_img_size: [64, 64, 64]
+  global_crops_scale: [0.4, 1.]
+  local_crops_number: 8
+  local_crops_scale: [0.05, 0.4]
+  orientation: "RAS"
+  spacing: [1.75, 1.75, 1.75]
+  resize: [128, 128, 128]
+
+data:
+  num_workers: 4
+
+output_dir: "."
+cache_dir: "./monai_cache"
+
+BRATS2023:
+  dataroot: "/SSD/qasymjomart/BRATS2023/ASNR-MICCAI-BraTS2023-GLI-Challenge-TrainingData/*/*t1n.nii.gz"
+
+IXI:
+  dataroot: "/SSD/qasymjomart/IXI-T1/hdbet/IXI*/*T1.nii.gz"
+
+HCP:
+  dataroot: "/SSD/qasymjomart/HCP/hdbet/*/hdbet_n4*1.nii.gz"
+
+OASIS3:
+  dataroot: "/SSD/qasymjomart/uda/data/OASIS3/scans/*/*/*/hdbet*[!mask].nii.gz"
+  labelsroot: "/SSD/qasymjomart/uda/data/OASIS3_CLOSEST_LABELS_ONLY_HEALTHY.csv"
+  mode: 'training'
