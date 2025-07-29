@@ -3,6 +3,8 @@ import glob
 import pandas as pd
 import monai
 
+import torch
+
 class ContrastiveLearningViewGenerator(object):
     """Take two random crops of one image as the query and key."""
 
@@ -17,25 +19,27 @@ class ContrastiveLearningViewGenerator(object):
                                                         monai.transforms.Resized(keys=["image"], spatial_size=(128, 128, 128), mode="trilinear"),
                                                         monai.transforms.RandFlipd(keys=["image"], prob=0.5, spatial_axis=1),
                                                         monai.transforms.RandShiftIntensityd(keys=["image"], prob=0.8, offsets=0.1),
-                                                        monai.transforms.RandomAdjustContrastd(keys=["image"], prob=0.2, gamma=(0.7, 1.3)),
+                                                        monai.transforms.RandAdjustContrastd(keys=["image"], prob=0.2, gamma=(0.7, 1.3)),
                                                         monai.transforms.RandGaussianSmoothd(keys=["image"], sigma_x=(0.25, 1.5), sigma_y=(0.25, 1.5), sigma_z=(0.25, 1.5), prob=0.8)
                                             ])
         self.n_views = n_views
 
     def __call__(self, x):
-        return [self.base_transform(x) for i in range(self.n_views)]
+        return tuple(self.base_transform(x)['image'] for i in range(self.n_views))
 
 def check_dirs_exist(cfg):
     if not os.path.exists(cfg["BRATS2023"]["dataroot"]):
-        cfg["BRATS2023"]["dataroot"].replace("/SSD/", "/SSD/guest/")
+        cfg["BRATS2023"]["dataroot"] = cfg["BRATS2023"]["dataroot"].replace("/SSD/", "/SSD/guest/")
     if not os.path.exists(cfg["IXI"]["dataroot"]):
-        cfg["IXI"]["dataroot"].replace("/SSD/", "/SSD/guest/")
+        cfg["IXI"]["dataroot"] = cfg["IXI"]["dataroot"].replace("/SSD/", "/SSD/guest/")
     if not os.path.exists(cfg["HCP"]["dataroot"]):
-        cfg["HCP"]["dataroot"].replace("/SSD/", "/SSD/guest/")
+        cfg["HCP"]["dataroot"] = cfg["HCP"]["dataroot"].replace("/SSD/", "/SSD/guest/")
     if not os.path.exists(cfg["OASIS3"]["dataroot"]):
-        cfg["OASIS3"]["dataroot"].replace("/SSD/", "/SSD/guest/")
+        cfg["OASIS3"]["dataroot"] = cfg["OASIS3"]["dataroot"].replace("/SSD/", "/SSD/guest/")
     if not os.path.exists(cfg["OASIS3"]["labelsroot"]):
-        cfg["OASIS3"]["labelsroot"].replace("/SSD/", "/SSD/guest/")
+        cfg["OASIS3"]["labelsroot"] = cfg["OASIS3"]["labelsroot"].replace("/SSD/", "/SSD/guest/")
+    
+    return cfg
 
 def get_dataset_list(datasets, cfg):
     cfg = check_dirs_exist(cfg)
@@ -66,9 +70,21 @@ def get_dataset_list(datasets, cfg):
     print(f"Total number of images in dataset: {len(dataset_list)}")
 
     return dataset_list
-                                                    
+
+def contrastive_collate_fn(batch):
+    """
+    Custom collate function to handle batches of images for contrastive learning.
+    This function assumes that each item in the batch is a list of crops.
+    """
+    # Unzip the batch into individual crops
+    crops = list(zip(*batch)) # [ (view1, view2 (view1, view2) ]
+    # Stack each crop type into a tensor
+    crops_stacked = [torch.stack(crop) for crop in crops] # [ (view1, ...), (view2, ...) ]
+    return crops_stacked
                                                                                
-def make_monai_dataset_for_simclr(datasets, n_views, cfg):
+def make_monai_dataset_for_simclr(datasets, cfg):
+    
+    n_views = cfg['simclr']['n_views']
     
     dataset_list = get_dataset_list(datasets, cfg)
     
@@ -79,5 +95,5 @@ def make_monai_dataset_for_simclr(datasets, n_views, cfg):
         transform=transforms_n_views,
         cache_dir=cfg['cache_dir']
     )
-
+        
     return dataset

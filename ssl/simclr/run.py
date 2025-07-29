@@ -4,7 +4,7 @@ import argparse
 import torch
 import wandb
 
-from data_utils import make_monai_dataset_for_simclr
+from data_utils import make_monai_dataset_for_simclr, contrastive_collate_fn
 from models.vit3d_simclr import ViT3DSimCLR
 from simclr import SimCLR
 
@@ -18,7 +18,6 @@ parser.add_argument('--output_dir', type=str, default='./checkpoints/', help='Di
 
 def main():
     args = parser.parse_args()
-    assert args.n_views == 2, "Only two view training is supported. Please use --n-views 2."
     # check if gpu training is available
     if torch.cuda.is_available():
         args.device = torch.device('cuda')
@@ -30,30 +29,34 @@ def main():
     f_config = open(args.config_file,'rb')
     cfg = yaml.load(f_config, Loader=yaml.FullLoader)
     
+    assert cfg['simclr']['n_views'] == 2, "Only two view training is supported. Please use --n-views 2."
+    
     FILENAME = f"SimCLR_pt_{args.savename}_{'_'.join(args.datasets)}_seed_{args.seed}"
     
     wandb_run = wandb.init(project="DAMIT_NEW[SimCLR]", config=cfg, name=FILENAME, dir=os.path.join(args.output_dir, FILENAME),
                            tags=args.datasets+['SimCLR'], group=FILENAME)
     
-    train_dataset = make_monai_dataset_for_simclr(args.dataset_name, args.n_views, cfg)
+    train_dataset = make_monai_dataset_for_simclr(args.datasets, cfg)
     
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=cfg['training']['batch_size'],
         num_workers=cfg['data']['num_workers'],
+        collate_fn=contrastive_collate_fn,
         shuffle=True,
         pin_memory=True,
         drop_last=True
     )
     
-    model = ViT3DSimCLR(**cfg['model'], out_dim=cfg['simclr']['out_dim'])
+    cfg['model'].pop('n_classes', None)  # Remove n_classes if it exists, as it's not needed for SimCLR
+    model = ViT3DSimCLR(out_dim=cfg['simclr']['out_dim'], **cfg['model'])
     
     optimizer = torch.optim.Adam(model.parameters(), cfg['optimizer']['lr'], weight_decay=cfg['optimizer']['weight_decay'])
 
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=len(train_loader), eta_min=0,
                                                            last_epoch=-1)
 
-    with torch.cuda.device(args.gpu_index):
+    with torch.cuda.device(int(args.devices)):
         simclr = SimCLR(model=model, optimizer=optimizer, scheduler=scheduler, args=args, cfg=cfg, wandb_run=wandb_run, FILENAME=FILENAME)
         simclr.train(train_loader)
     

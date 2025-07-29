@@ -17,8 +17,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from my_utils.weight_init import trunc_normal_, init_weights_vit_timm, get_init_weights_vit, named_apply
-from my_utils.utils import get_3d_sincos_pos_embed
+from .my_utils.weight_init import trunc_normal_, init_weights_vit_timm, get_init_weights_vit, named_apply
+from .my_utils.utils import get_3d_sincos_pos_embed
 
 def drop_path(x, drop_prob: float = 0., training: bool = False):
     """Drop paths (Stochastic Depth) per sample (when applied in main path of residual blocks).

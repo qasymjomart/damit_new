@@ -3,7 +3,7 @@ from loguru import logger
 
 import torch
 import torch.nn.functional as F
-from torch.cuda.amp import GradScaler, autocast
+from torch.amp import GradScaler, autocast
 from tqdm import tqdm
 from utils import accuracy, save_checkpoint
 
@@ -25,7 +25,7 @@ class SimCLR(object):
 
         labels = torch.cat([torch.arange(self.cfg['training']['batch_size']) for i in range(self.cfg['simclr']['n_views'])], dim=0)
         labels = (labels.unsqueeze(0) == labels.unsqueeze(1)).float()
-        labels = labels.to(self.args.devices)
+        labels = labels.to(int(self.args.devices))
 
         features = F.normalize(features, dim=1)
 
@@ -33,9 +33,8 @@ class SimCLR(object):
         # assert similarity_matrix.shape == (
         #     self.args.n_views * self.args.batch_size, self.args.n_views * self.args.batch_size)
         # assert similarity_matrix.shape == labels.shape
-
         # discard the main diagonal from both: labels and similarities matrix
-        mask = torch.eye(labels.shape[0], dtype=torch.bool).to(self.args.devices)
+        mask = torch.eye(labels.shape[0], dtype=torch.bool).to(int(self.args.devices))
         labels = labels[~mask].view(labels.shape[0], -1)
         similarity_matrix = similarity_matrix[~mask].view(similarity_matrix.shape[0], -1)
         # assert similarity_matrix.shape == labels.shape
@@ -47,14 +46,14 @@ class SimCLR(object):
         negatives = similarity_matrix[~labels.bool()].view(similarity_matrix.shape[0], -1)
 
         logits = torch.cat([positives, negatives], dim=1)
-        labels = torch.zeros(logits.shape[0], dtype=torch.long).to(self.args.devices)
+        labels = torch.zeros(logits.shape[0], dtype=torch.long).to(int(self.args.devices))
 
         logits = logits / self.cfg['simclr']['temperature']
         return logits, labels
 
     def train(self, train_loader):
 
-        scaler = GradScaler(enabled=self.cfg['training']['use_fp16'])
+        scaler = GradScaler('cuda', enabled=self.cfg['training']['use_fp16'])
 
         logger.info(f"Configs: \n {self.cfg}")
         n_iter = 0
@@ -62,12 +61,11 @@ class SimCLR(object):
         logger.info(f"Training with gpu: {self.args.devices}.")
 
         for epoch_counter in range(self.cfg['training']['epochs']):
-            for images, _ in tqdm(train_loader):
-                images = torch.cat(images, dim=0)
-
+            for images1, images2 in tqdm(train_loader):
+                images = torch.cat((images1, images2), dim=0)
                 images = images.to(int(self.args.devices))
 
-                with autocast(enabled=self.cfg['training']['use_fp16']):
+                with autocast('cuda', enabled=self.cfg['training']['use_fp16']):
                     features = self.model(images)
                     logits, labels = self.info_nce_loss(features)
                     loss = self.criterion(logits, labels)
