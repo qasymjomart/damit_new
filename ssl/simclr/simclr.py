@@ -79,18 +79,18 @@ class SimCLR(object):
 
                 if n_iter % self.cfg['simclr']['log_every_n_steps'] == 0:
                     top1, top5 = accuracy(logits, labels, topk=(1, 5))
-                    self.wandb_run.log({'loss': loss}, step=n_iter)
-                    self.wandb_run.log({'acc/top1': top1[0]}, step=n_iter)
-                    self.wandb_run.log({'acc/top5': top5[0]}, step=n_iter)
+                    self.wandb_run.log({'loss': loss.item()}, step=n_iter)
+                    self.wandb_run.log({'acc/top1': top1[0].item()}, step=n_iter)
+                    self.wandb_run.log({'acc/top5': top5[0].item()}, step=n_iter)
                     self.wandb_run.log({'learning_rate': self.scheduler.get_lr()[0]}, step=n_iter)
-                    logger.info(f"Iter: {n_iter}\tLoss: {loss.item()}\tTop1 accuracy: {top1[0]}\tTop5 accuracy: {top5[0]}")
+                    logger.info(f"Iter: {n_iter}\tLoss: {loss.item()}\tTop1 accuracy: {top1[0].item()}\tTop5 accuracy: {top5[0].item()}")
 
                 n_iter += 1
 
             # warmup for the first 10 epochs
             if epoch_counter >= 10:
                 self.scheduler.step()
-            logger.success(f"Epoch: {epoch_counter}\tLoss: {loss}\tTop1 accuracy: {top1[0]}")
+            logger.success(f"Epoch: {epoch_counter}\tLoss: {loss.item()}\tTop1 accuracy: {top1[0].item()}")
 
         logger.success("Training has finished.")
         # save model checkpoints
