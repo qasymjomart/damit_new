@@ -4,12 +4,12 @@ model:
   drop_path_rate: 0.1
   img_size: [128,128,128]
   in_chans: 1
-  n_classes: 128
+  # n_classes: 128
   embed_dim: 768
   depth: 12
   n_heads: 12
   mlp_ratio: 4.0
-  qkv_bias: False
+  qkv_bias: True
   p: 0.
   attn_p: 0.
   global_avg_pool: False
@@ -20,7 +20,8 @@ simclr:
   n_views: 2
   out_dim: 128
   log_every_n_steps: 10
-  temperature: 0.07
+  # temperature: 0.07 # original value
+  temperature: 0.1 # adjusted for better performance
 
 
 training:
@@ -30,14 +31,15 @@ training:
   warmup_epochs: 10
 
 optimizer:
-  freeze_last_layer: 1
+  # freeze_last_layer: 1
   lr: 0.0003
   warmup_epochs: 10
-  min_lr: 0.000001
-  optimizer: 'adamw'
+  # min_lr: 0.000001
+  # optimizer: 'adamw'
+  # weight_decay: 0.0001 # original value
   weight_decay: 0.0001
-  weight_decay_end: 0.4
-  clip_grad: 3.0
+  # weight_decay_end: 0.4
+  # clip_grad: 3.0
 
 transforms:
   local_crop_img_size: [64, 64, 64]

@@ -498,18 +498,18 @@ class Vision_Transformer3D(nn.Module):
 
         # just the CLS token
         cls_token_final = x[:, 0] if self.cls_token is not None else x.mean(dim=1)
-        if return_attn:
-            attn_arr = torch.stack(attn_arr, dim=1)
-            return cls_token_final, attn_arr
-        return cls_token_final
-
-        # cls_token_final = self.bottleneck(cls_token_final)
-        # x = self.head(cls_token_final)
-
         # if return_attn:
         #     attn_arr = torch.stack(attn_arr, dim=1)
-        #     return x, attn_arr
-        # return x
+        #     return cls_token_final, attn_arr
+        # return cls_token_final
+
+        # cls_token_final = self.bottleneck(cls_token_final)
+        x = self.head(cls_token_final)
+
+        if return_attn:
+            attn_arr = torch.stack(attn_arr, dim=1)
+            return x, attn_arr
+        return x
     
     def get_last_selfattention(self, x):
         x = self.prepare_tokens(x)

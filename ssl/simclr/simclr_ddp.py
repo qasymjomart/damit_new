@@ -11,20 +11,21 @@ class SimCLR(object):
 
     def __init__(self, **kwargs):
         self.FILENAME = kwargs['FILENAME']
+        self.rank = kwargs['rank']
         self.args = kwargs['args']
-        self.model = kwargs['model'].to(self.args.devices)
+        self.model = kwargs['model'].to(self.rank)
         self.optimizer = kwargs['optimizer']
         self.scheduler = kwargs['scheduler']
         self.cfg = kwargs['cfg']
         self.wandb_run = kwargs['wandb_run']
         logger.add(os.path.join(self.args.output_dir, self.FILENAME, 'simclr.log'), level='DEBUG')
-        self.criterion = torch.nn.CrossEntropyLoss().to(self.args.devices)
+        self.criterion = torch.nn.CrossEntropyLoss().to(self.rank)
 
     def info_nce_loss(self, features):
 
         labels = torch.cat([torch.arange(self.cfg['training']['batch_size']) for i in range(self.cfg['simclr']['n_views'])], dim=0)
         labels = (labels.unsqueeze(0) == labels.unsqueeze(1)).float()
-        labels = labels.to(self.args.devices)
+        labels = labels.to(self.rank)
 
         features = F.normalize(features, dim=1)
 
@@ -33,7 +34,7 @@ class SimCLR(object):
         #     self.args.n_views * self.args.batch_size, self.args.n_views * self.args.batch_size)
         # assert similarity_matrix.shape == labels.shape
         # discard the main diagonal from both: labels and similarities matrix
-        mask = torch.eye(labels.shape[0], dtype=torch.bool).to(self.args.devices)
+        mask = torch.eye(labels.shape[0], dtype=torch.bool).to(self.rank)
         labels = labels[~mask].view(labels.shape[0], -1)
         similarity_matrix = similarity_matrix[~mask].view(similarity_matrix.shape[0], -1)
         # assert similarity_matrix.shape == labels.shape
@@ -45,7 +46,7 @@ class SimCLR(object):
         negatives = similarity_matrix[~labels.bool()].view(similarity_matrix.shape[0], -1)
 
         logits = torch.cat([positives, negatives], dim=1)
-        labels = torch.zeros(logits.shape[0], dtype=torch.long).to(self.args.devices)
+        labels = torch.zeros(logits.shape[0], dtype=torch.long).to(self.rank)
 
         logits = logits / self.cfg['simclr']['temperature']
         return logits, labels
@@ -60,10 +61,11 @@ class SimCLR(object):
         self.optimizer.zero_grad()
 
         for epoch_counter in range(self.cfg['training']['epochs']):
+            train_loader.sampler.set_epoch(epoch_counter)
             # for images1, images2 in tqdm(train_loader):
-            for images in tqdm(train_loader): # adding as images, _ returns only one element from the array of the batch
+            for images in tqdm(train_loader):
                 images = torch.cat(images, dim=0)
-                images = images.to(self.args.devices)
+                images = images.to(self.rank)
                 
                 # check if images have any NaN values
                 if torch.isnan(images).any():
@@ -82,7 +84,7 @@ class SimCLR(object):
                     scaler.update()
                     self.optimizer.zero_grad()
 
-                if n_iter % self.cfg['simclr']['log_every_n_steps'] == 0:
+                if n_iter % self.cfg['simclr']['log_every_n_steps'] == 0 and self.rank == 0:
                     top1, top5 = accuracy(logits, labels, topk=(1, 5))
                     self.wandb_run.log({'loss': loss.item()}, step=n_iter)
                     self.wandb_run.log({'acc/top1': top1[0].item()}, step=n_iter)
@@ -96,12 +98,14 @@ class SimCLR(object):
             # warmup for the first 10 epochs
             if epoch_counter >= 10:
                 self.scheduler.step()
-            logger.success(f"Epoch: {epoch_counter}\tLoss: {loss.item()}\tTop1 accuracy: {top1[0].item()}")
+            if self.rank == 0:
+                logger.success(f"Epoch: {epoch_counter}\tLoss: {loss.item()}\tTop1 accuracy: {top1[0].item()}")
 
         logger.success("Training has finished.")
         # save model checkpoints
         checkpoint_name = 'checkpoint_{:04d}.pth.tar'.format(self.cfg['training']['epochs'])
-        torch.save(self.model.state_dict(), os.path.join(self.args.output_dir, self.FILENAME, checkpoint_name))
+        if self.rank == 0:
+            torch.save(self.model.module.state_dict(), os.path.join(self.args.output_dir, self.FILENAME, checkpoint_name))
             # save_checkpoint({
                 # 'epoch': self.cfg['training']['epochs'],
                 # 'state_dict': self.model.module.state_dict(),

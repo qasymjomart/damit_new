@@ -12,20 +12,43 @@ class ContrastiveLearningViewGenerator(object):
         self.base_transform = monai.transforms.Compose([monai.transforms.LoadImaged(keys=["image"]),
                                                         monai.transforms.EnsureChannelFirstd(keys=["image"]),
                                                         monai.transforms.Orientationd(keys=["image"], axcodes="RAS"),
-                                                        monai.transforms.Spacingd(keys=["image"], pixdim=(1.75, 1.75, 1.75)),
-                                                        monai.transforms.RandSpatialCropd(keys=["image"], roi_size=(10, 10, 10),
-                                                                                        max_roi_size=(128, 128, 128), random_center=True,
+                                                        monai.transforms.Spacingd(keys=["image"], pixdim=(1, 1, 1)),
+                                                        monai.transforms.RandSpatialCropd(keys=["image"], 
+                                                                                        roi_size=(56, 56, 56),
+                                                                                        max_roi_size=(128, 128, 128), 
+                                                                                        random_center=True,
                                                                                         random_size=True),
-                                                        monai.transforms.Resized(keys=["image"], spatial_size=(128, 128, 128), mode="trilinear"),
-                                                        monai.transforms.RandFlipd(keys=["image"], prob=0.5, spatial_axis=1),
-                                                        monai.transforms.RandShiftIntensityd(keys=["image"], prob=0.8, offsets=0.1),
-                                                        monai.transforms.RandAdjustContrastd(keys=["image"], prob=0.2, gamma=(0.7, 1.3)),
-                                                        monai.transforms.RandGaussianSmoothd(keys=["image"], sigma_x=(0.25, 1.5), sigma_y=(0.25, 1.5), sigma_z=(0.25, 1.5), prob=0.8)
+                                                        monai.transforms.Resized(keys=["image"], 
+                                                                                 spatial_size=(128, 128, 128), 
+                                                                                 mode="trilinear"
+                                                                                 ),
+                                                        # monai.transforms.ScaleIntensityd(keys=["image"]),
+                                                        # monai.transforms.RandFlipd(keys=["image"], prob=0.5, spatial_axis=1),
+                                                        # monai.transforms.RandRotated(keys=["image"], prob=0.5),
+                                                        # monai.transforms.RandBiasFieldd(keys=["image"], prob=0.8),
+                                                        # monai.transforms.RandShiftIntensityd(keys=["image"], prob=0.8, offsets=0.1),
+                                                        # monai.transforms.RandAdjustContrastd(keys=["image"], prob=0.2, gamma=(0.7, 1.3)),
+                                                        # monai.transforms.RandGaussianSmoothd(keys=["image"], sigma_x=(0.25, 1.5), sigma_y=(0.25, 1.5), sigma_z=(0.25, 1.5), prob=0.5)
                                             ])
+        
+        self.view_transform = monai.transforms.Compose([monai.transforms.RandSpatialCropd(keys=["image"], 
+                                                                                        roi_size=(80, 80, 80),
+                                                                                        max_roi_size=(128, 128, 128), 
+                                                                                        random_center=True,
+                                                                                        random_size=True),
+                                                        monai.transforms.Resized(keys=["image"], 
+                                                                                 spatial_size=(128, 128, 128), 
+                                                                                 mode="trilinear"
+                                                                                 ),
+        ])
+        
         self.n_views = n_views
 
     def __call__(self, x):
-        return tuple(self.base_transform(x)['image'] for i in range(self.n_views))
+        # return tuple(self.base_transform(x)['image'] for i in range(self.n_views))
+        # return [self.base_transform(x)['image'] for _ in range(self.n_views)]
+        base_x = self.base_transform(x)
+        return [self.view_transform(base_x)["image"] for _ in range(self.n_views)]
 
 def check_dirs_exist(cfg):
     if not os.path.exists(cfg["BRATS2023"]["dataroot"]):
@@ -76,10 +99,16 @@ def contrastive_collate_fn(batch):
     Custom collate function to handle batches of images for contrastive learning.
     This function assumes that each item in the batch is a list of crops.
     """
-    # Unzip the batch into individual crops
-    crops = list(zip(*batch)) # [ (view1, view2 (view1, view2) ]
-    # Stack each crop type into a tensor
-    crops_stacked = [torch.stack(crop) for crop in crops] # [ (view1, ...), (view2, ...) ]
+    # batch [ [view1, view2], [view1, view2], ... ]
+    # we need [view1, view1, view1, ..., view2, view2, view2, ...]
+    # first, stack the crops in the batch
+    crops_stacked = [torch.stack([crop[i] for crop in batch]) for i in range(len(batch[0]))]
+    # crops_stacked will be a list of tensors, where each tensor corresponds to a view
+        
+    # # Unzip the batch into individual crops
+    # crops = list(zip(*batch)) # [ (view1, view2) (view1, view2) ]
+    # # Stack each crop type into a tensor
+    # crops_stacked = [torch.stack(crop) for crop in crops] # [ (view1, ...), (view2, ...) ]
     return crops_stacked
                                                                                
 def make_monai_dataset_for_simclr(datasets, cfg):
