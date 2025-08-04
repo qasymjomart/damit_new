@@ -78,7 +78,7 @@ class MONAIDataAugmentationDINO:
             rand_trans,
             monai.transforms.GaussianSmoothd(keys=["image"], sigma=0.1),
             # monai.transforms.ScaleIntensityd(keys=["image"]),
-            Solarizationd(keys=["image"], prob=0.2, threshold=0.5),
+            # Solarizationd(keys=["image"], prob=0.2, threshold=0.5),
             norm_trans
         ])
 

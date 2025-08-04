@@ -48,7 +48,7 @@ if __name__ == '__main__':
 
     # Parse some variable configs
     parser = argparse.ArgumentParser(description='Train UDA model for MRI imaging for classification of AD')
-    parser.add_argument('--config_file', type=str, default='config.yaml', help='Name of the config file')
+    parser.add_argument('--config_file', type=str, default='configs/config_vitb.yaml', help='Name of the config file')
     parser.add_argument('--savename', type=str, help='Experiment name (used for saving files)')
     parser.add_argument('--classes_to_use', nargs='+', type=str, help='Classes to use (enter by separating by space, e.g. CN AD MCI)')
     parser.add_argument('--dataset', type=str, help='Dataset')

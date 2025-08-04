@@ -101,6 +101,15 @@ class LitViT(L.LightningModule):
         checkpoint = torch.load(pre_trained_model_path, map_location='cpu')
         if pre_trained_model_path.endswith('.pth.tar'):
             checkpoint_model = checkpoint['net']
+        elif 'DINO' in pre_trained_model_path and pre_trained_model_path.endswith('.pth'):
+            checkpoint_model = checkpoint['student']
+            for key in list(checkpoint_model.keys()):
+                if key.startswith('module.'):
+                    checkpoint_model[key[len('module.'):]] = checkpoint_model.pop(key)
+            for key in list(checkpoint_model.keys()):
+                if key.startswith('backbone.'):
+                    checkpoint_model[key[len('backbone.'):]] = checkpoint_model.pop(key)
+            import ipdb; ipdb.set_trace()
         elif pre_trained_model_path.endswith('.ckpt'):
             checkpoint_model = checkpoint['state_dict']
             for key in list(checkpoint_model.keys()):

@@ -4,7 +4,7 @@ model:
   # drop_path_rate: 0.1
   drop_path_rate: 0.4
   # out_dim: 65536 # original value
-  out_dim: 4096
+  out_dim: 65536
   img_size: [128,128,128]
   in_chans: 1
   n_classes: 0
@@ -23,7 +23,7 @@ dino_head:
   use_bn: False
   in_dim: 768
   # out_dim: 65536 # original value
-  out_dim: 4096
+  out_dim: 65536
 
 dino:
   norm_last_layer: True
@@ -35,7 +35,7 @@ dino:
 
 training:
   use_fp16: False
-  batch_size_per_gpu: 16
+  batch_size_per_gpu: 12
   batch_size: 64
   epochs: 100
   warmup_epochs: 10

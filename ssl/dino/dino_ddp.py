@@ -195,7 +195,7 @@ def train_dino():
         # ============ training one epoch of DINO ... ============
         train_stats = train_one_epoch(student, teacher, teacher_without_ddp, dino_loss,
             data_loader, optimizer, lr_schedule, wd_schedule, momentum_schedule,
-            epoch, fp16_scaler, cfg)
+            epoch, run, fp16_scaler, cfg)
 
         # ============ writing logs ... ============
         save_dict = {
@@ -229,7 +229,7 @@ def train_dino():
 
 def train_one_epoch(student, teacher, teacher_without_ddp, dino_loss, data_loader,
                     optimizer, lr_schedule, wd_schedule, momentum_schedule,epoch,
-                    fp16_scaler, cfg):
+                    wandb_run, fp16_scaler, cfg):
     metric_logger = utils.MetricLogger(delimiter="  ")
     header = 'Epoch: [{}/{}]'.format(epoch, cfg['training']['epochs'])
     for it, images in enumerate(metric_logger.log_every(data_loader, 10, header)):
@@ -283,6 +283,12 @@ def train_one_epoch(student, teacher, teacher_without_ddp, dino_loss, data_loade
         metric_logger.update(loss=loss.item())
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
         metric_logger.update(wd=optimizer.param_groups[0]["weight_decay"])
+        
+        wandb_run.log({
+            'iter_loss': loss.item(),
+            'iter_lr': optimizer.param_groups[0]["lr"],
+        }, step=it)
+        
         torch.cuda.empty_cache()
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
