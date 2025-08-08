@@ -80,7 +80,7 @@ def train_dino():
     # Loads config file for fixed configs
     f_config = open(args.config_file,'rb')
     cfg = yaml.load(f_config, Loader=yaml.FullLoader)
-    os.environ["CUDA_VISIBLE_DEVICES"] = args.devices
+    # os.environ["CUDA_VISIBLE_DEVICES"] = args.devices
     args.devices = [int(d) for d in args.devices.split(',')]
     
     os.makedirs(args.output_dir, exist_ok=True)
@@ -169,7 +169,7 @@ def train_dino():
     warmup_epochs = cfg['training']['warmup_epochs']
     momentum_teacher = cfg['dino']['momentum_teacher']
     
-    coeff_lr_div = 256. # originally it is 256.
+    coeff_lr_div = 64. # originally it is 256.
     lr_schedule = utils.cosine_scheduler(
         lr * (batch_size_per_gpu * utils.get_world_size()) / coeff_lr_div,  # linear scaling rule
         min_lr,
@@ -214,7 +214,7 @@ def train_dino():
             utils.save_on_master(save_dict, os.path.join(args.output_dir, FILENAME, f'checkpoint{epoch:04}.pth'))
         log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
                      'epoch': epoch}
-        run.log(log_stats, step=epoch)
+        run.log(log_stats)
         if utils.is_main_process():
             with (Path(f"{args.output_dir}/{FILENAME}") / "log.txt").open("a") as f:
                 f.write(json.dumps(log_stats) + "\n")

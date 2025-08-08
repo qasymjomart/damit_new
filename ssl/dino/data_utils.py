@@ -42,7 +42,7 @@ class MONAIDataAugmentationDINO:
             monai.transforms.EnsureChannelFirstd(keys=["image",]),
             monai.transforms.Orientationd(keys=["image"], axcodes=orientation),
             monai.transforms.Spacingd(keys=["image"], pixdim=tuple(spacing)),
-            monai.transforms.Resized(keys=["image"], spatial_size=tuple(resize)),
+            # monai.transforms.Resized(keys=["image"], spatial_size=tuple(resize)),
         ])
         
         rand_trans = monai.transforms.Compose([
@@ -135,6 +135,11 @@ def make_dino_dataloaders(cfg, datasets):
     transform = MONAIDataAugmentationDINO(
         **cfg['transforms']
     )
+    
+    if cfg['transforms']['3dino']:
+        from aiconslab_3dino.augmentations import DataAugmentation3DINO
+        transform = DataAugmentation3DINO()
+        print("[IMPORTANT!] Using 3DINO augmentation pipeline!")
     
     dataset_list = get_dataset_list(datasets, cfg)
         
