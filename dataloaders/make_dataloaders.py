@@ -18,86 +18,6 @@ def replace_data_path(datapath):
         datapath = datapath.replace('/SSD/qasymjomart/', '/SSD/guest/qasymjomart/')
     return datapath
 
-
-def make_train_test_split_of_target(cfg, args, test_size=0.2):
-    """
-    Make train and test split of the target dataset.
-
-    Parameters:
-    ------------
-    cfg: config (read from yaml)
-    args: argument parser from command line
-    test_split: test split percentage (in decimal)
-
-    Returns:
-    ---------
-    train_test_split_paths : dict(train_path, test_path)
-
-    """
-    if args.dataset in ['ADNI1', 'ADNI2']:
-        labels = pd.read_csv(cfg[args.dataset]['labelsroot'])
-        x_train, x_test, y_train, y_test = train_test_split(labels.Subject, 
-                                                            labels.Group, 
-                                                            test_size=test_size, 
-                                                            stratify=labels.Group
-                                                            )
-        labels_test = pd.concat([x_test, y_test], axis=1)
-        labels_test.sort_values(by='Subject', inplace=True)
-        test_csv = pd.merge(labels_test, 
-                            labels[['Subject', 'Image Data ID']], 
-                            on=['Subject'], 
-                            how='left'
-                            )
-        
-        labels_train = pd.concat([x_train, y_train], axis=1)
-        labels_train.sort_values(by='Subject', inplace=True)
-        train_csv = pd.merge(labels_train, 
-                             labels[['Subject', 'Image Data ID']], 
-                             on=['Subject'], 
-                             how='left'
-                            )
-        
-        test_csv.to_csv(cfg['DATALOADER']['TRAIN_TEST_SPLIT_PATH'] + 'test_' + args.savename + "_" + args.mode + '_seed_' + str(args.seed) + '.csv')
-        train_csv.to_csv(cfg['DATALOADER']['TRAIN_TEST_SPLIT_PATH'] + 'train_' + args.savename + "_" + args.mode + '_seed_' + str(args.seed) + '.csv')
-
-        train_test_split_paths = {
-            'train' : cfg['DATALOADER']['TRAIN_TEST_SPLIT_PATH'] + 'train_' + args.savename + "_" + args.mode + '_seed_' + str(args.seed) + '.csv',
-            'test' : cfg['DATALOADER']['TRAIN_TEST_SPLIT_PATH'] + 'test_' + args.savename + "_" + args.mode + '_seed_' + str(args.seed) + '.csv'
-        }
-
-    elif args.dataset in ['OASIS3']:
-        labels = pd.read_csv(cfg[args.dataset]['labelsroot'])
-        x_train, x_test, y_train, y_test = train_test_split(labels.OASISID, 
-                                                            labels.Label, 
-                                                            test_size=test_size, 
-                                                            stratify=labels.Label
-                                                            )
-        labels_test = pd.concat([x_test, y_test], axis=1)
-        labels_test.sort_values(by='OASISID', inplace=True)
-        test_csv = pd.merge(labels_test, 
-                            labels[['OASISID', 'MRI_LABEL', 'filename']], 
-                            on=['OASISID'], 
-                            how='left'
-                            )
-        
-        labels_train = pd.concat([x_train, y_train], axis=1)
-        labels_train.sort_values(by='OASISID', inplace=True)
-        train_csv = pd.merge(labels_train, 
-                             labels[['OASISID', 'MRI_LABEL', 'filename']], 
-                             on=['OASISID'], 
-                             how='left'
-                            )
-        
-        test_csv.to_csv(cfg['DATALOADER']['TRAIN_TEST_SPLIT_PATH'] + 'test_' + args.savename + "_" + args.mode + '_seed_' + str(args.seed) + '.csv')
-        train_csv.to_csv(cfg['DATALOADER']['TRAIN_TEST_SPLIT_PATH'] + 'train_' + args.savename + "_" + args.mode + '_seed_' + str(args.seed) + '.csv')
-
-        train_test_split_paths = {
-            'train' : cfg['DATALOADER']['TRAIN_TEST_SPLIT_PATH'] + 'train_' + args.savename + "_" + args.mode + '_seed_' + str(args.seed) + '.csv',
-            'test' : cfg['DATALOADER']['TRAIN_TEST_SPLIT_PATH'] + 'test_' + args.savename + "_" + args.mode + '_seed_' + str(args.seed) + '.csv'
-        }
-    
-    return train_test_split_paths
-
 def make_mae_pretraining_dataloaders(cfg, args):
     """Build datalaoders for MAE pretraining
 
@@ -202,30 +122,6 @@ def make_mae_pretraining_dataloaders(cfg, args):
 def make_kfold_dataloaders(cfg, args, train_df, test_df):
 
     if args.use_aug:
-        # new augmentation
-        # train_transforms = monai.transforms.Compose([
-        #     monai.transforms.LoadImaged(keys=["image"]),
-        #     monai.transforms.EnsureChannelFirstd(keys=["image"]),
-        #     monai.transforms.Orientationd(keys=["image"], axcodes=cfg["TRANSFORMS"]["orientation"]),
-        #     monai.transforms.Spacingd(keys=["image"], pixdim=tuple(cfg["TRANSFORMS"]["spacing"])),
-        #     monai.transforms.CropForegroundd(keys=["image"], source_key="image"), 
-        #     monai.transforms.NormalizeIntensityd(keys=["image"], nonzero=cfg["TRANSFORMS"]["normalize_non_zero"]),
-        #     # monai.transforms.RandZoomd(keys=["image"], prob=0.2, min_zoom=0.9, max_zoom=1.2, keep_size=True),
-        #     monai.transforms.Resized(keys=["image"], spatial_size=tuple(cfg["TRANSFORMS"]["resize"])),
-        #     # monai.transforms.RandAffined(keyss=["image"], prob=0.2, rotate_range=(0, 0, 0.2 * math.pi), scale_range=(0.1, 0.1, 0.1), translate_range=(10, 10, 10)),
-        #     # monai.transforms.RandFlipd(keys=["image"], prob=0.2, spatial_axis=0),
-        #     # monai.transforms.RandFlipd(keys=["image"], prob=0.2, spatial_axis=1),
-        #     # monai.transforms.RandFlipd(keys=["image"], prob=0.2, spatial_axis=2),
-        #     # monai.transforms.RandRotate90d(keys=["image"], prob=0.2, max_k=3),
-        #     # monai.transforms.RandScaleIntensityd(keys="image", factors=0.1, prob=0.2), # must be disabled
-        #     # monai.transforms.RandShiftIntensityd(keys="image", offsets=0.1, prob=0.2), # must be disabled
-        #     # monai.transforms.RandGaussianNoised(keys=["image"], prob=0.2, mean=0.0, std=0.1), # must be disabled
-        #     monai.transforms.RandScaleIntensityd(keys="image", factors=0.2, prob=0.5),  # Increased factors and probability
-        #     monai.transforms.RandShiftIntensityd(keys="image", offsets=0.2, prob=0.5),  # Increased offsets and probability
-        #     monai.transforms.RandGaussianNoised(keys=["image"], prob=0.5, mean=0.0, std=0.2),  # Increased standard deviation and probability
-        #     monai.transforms.ToTensord(keys=["image", "label"])
-        # ])
-        
         # old augmentation
         train_transforms = monai.transforms.Compose([
             monai.transforms.LoadImaged(keys=["image"]),

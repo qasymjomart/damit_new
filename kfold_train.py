@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sun May 28 2023
-
+Created on Sun Aug 9 2025
 @author: qasymjomart
 """
 import os
@@ -44,10 +43,10 @@ def set_seed(seed):
     torch.backends.cudnn.benchmark = True
     print('Seed is set.')
 
-if __name__ == '__main__':
-
+def train():
+    
     # Parse some variable configs
-    parser = argparse.ArgumentParser(description='Train UDA model for MRI imaging for classification of AD')
+    parser = argparse.ArgumentParser(description='Train AD ViT model for MRI imaging for classification of AD')
     parser.add_argument('--config_file', type=str, default='configs/config_vitb.yaml', help='Name of the config file')
     parser.add_argument('--savename', type=str, help='Experiment name (used for saving files)')
     parser.add_argument('--classes_to_use', nargs='+', type=str, help='Classes to use (enter by separating by space, e.g. CN AD MCI)')
@@ -160,25 +159,13 @@ if __name__ == '__main__':
         ### MODEL ####
         model = make_model(cfg, args)
         
-        # Load pre-trained model weights (MAE)
-        # if args.use_pretrained is not None:
-        #     model = load_pretrained_checkpoint(model, args.use_pretrained, cfg['TRAINING']['CHECKPOINT_TYPE'])
-    
-        # Move model to GPU
-        # if cfg['TRAINING']['USE_GPU']:
-        #     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
-        #     params = sum([np.prod(p.size()) for p in model_parameters])
-        #     logger.info(f'Num of parameters in the model: {params}')
-        #     model.cuda()
-        
         model = prepare_model_for_training(model, cfg)
         
         # Initialize loss function (with weight balance)
         class_numbers = []
         for class_name in args.classes_to_use:
             class_numbers += [args.classes_to_use.index(class_name)] * ratios_train[class_name]
-        class_weights = compute_class_weight(class_weight='balanced', classes=np.unique(class_numbers), y=class_numbers)
-        class_weights = torch.Tensor(class_weights).cuda()
+        class_weights = torch.Tensor(compute_class_weight(class_weight='balanced', classes=np.unique(class_numbers), y=class_numbers)).cuda()
         logger.info(f'Class weights: {class_weights}')
         criterion = nn.CrossEntropyLoss(weight=class_weights)
         
@@ -216,11 +203,8 @@ if __name__ == '__main__':
                             # default_root_dir=f'checkpoints/{FILENAME}/fold_{i}/',
                             accelerator='gpu',
                             devices=[0],
-                            # precision='16-mixed',
                             num_sanity_val_steps=0,
-                            # precision=16,
                             logger=wandb_logger,
-                            # profiler='simple',
                             callbacks=[checkpoint_callback],
                             )
         
@@ -243,20 +227,23 @@ if __name__ == '__main__':
 
         shutil.rmtree(f'./monai_logs/train_{FILENAME_POSTFIX}')
         shutil.rmtree(f'./monai_logs/test_{FILENAME_POSTFIX}')
+    
+    # after all folds are done, print the results
+    print(kfold_results)
+    print(f'k-fold acc: {sum(kfold_results["corrects"])/sum(kfold_results["n_datapoints"]):.2f}')
+    print(f'avg of val accs {round(sum(kfold_results["val_accs"])/4, 2)} ± {round(np.std(kfold_results["val_accs"]), 2)}')
+    print(f'avg of recalls {round(sum(kfold_results["recalls"])/4, 2)} ± {round(np.std(kfold_results["recalls"]), 2)}')
+    print(f'avg of f1s {round(sum(kfold_results["f1s"])/4, 2)} ± {round(np.std(kfold_results["f1s"]), 2)}')
 
-print(kfold_results)
-print(f'k-fold acc: {sum(kfold_results["corrects"])/sum(kfold_results["n_datapoints"]):.2f}')
-print(f'avg of val accs {round(sum(kfold_results["val_accs"])/4, 2)} ± {round(np.std(kfold_results["val_accs"]), 2)}')
-print(f'avg of recalls {round(sum(kfold_results["recalls"])/4, 2)} ± {round(np.std(kfold_results["recalls"]), 2)}')
-print(f'avg of f1s {round(sum(kfold_results["f1s"])/4, 2)} ± {round(np.std(kfold_results["f1s"]), 2)}')
+    # save kfold results acc into a file
+    with open(f'./results/kfold_results_{FILENAME}.txt', 'w') as f:
+        f.write(f'{FILENAME}\n')
+        f.write(str(kfold_results) + '\n')
+        f.write(f'k-fold acc: {sum(kfold_results["corrects"])/sum(kfold_results["n_datapoints"]):.2f}')
+        f.write(f'avg of val accs {round(sum(kfold_results["val_accs"])/4, 2)} ± {round(np.std(kfold_results["val_accs"]), 2)}')
+        f.write(f'avg of recalls {round(sum(kfold_results["recalls"])/4, 2)} ± {round(np.std(kfold_results["recalls"]), 2)}')
+        f.write(f'avg of f1s {round(sum(kfold_results["f1s"])/4, 2)} ± {round(np.std(kfold_results["f1s"]), 2)}\n\n')
 
-# save kfold results acc into a file
-with open(f'./results/kfold_results_{FILENAME}.txt', 'w') as f:
-    f.write(f'{FILENAME}\n')
-    f.write(str(kfold_results) + '\n')
-    f.write(f'k-fold acc: {sum(kfold_results["corrects"])/sum(kfold_results["n_datapoints"]):.2f}')
-    f.write(f'avg of val accs {round(sum(kfold_results["val_accs"])/4, 2)} ± {round(np.std(kfold_results["val_accs"]), 2)}')
-    f.write(f'avg of recalls {round(sum(kfold_results["recalls"])/4, 2)} ± {round(np.std(kfold_results["recalls"]), 2)}')
-    f.write(f'avg of f1s {round(sum(kfold_results["f1s"])/4, 2)} ± {round(np.std(kfold_results["f1s"]), 2)}')
-    f.write('\n')
-    f.write('\n')
+if __name__ == '__main__':
+    train()
+    
