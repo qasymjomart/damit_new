@@ -119,7 +119,7 @@ def save_on_master(*args, **kwargs):
 class DINOLoss(nn.Module):
     def __init__(self, out_dim, ncrops, warmup_teacher_temp, teacher_temp,
                  warmup_teacher_temp_epochs, nepochs, student_temp=0.1,
-                 center_momentum=0.99, ddp_mode=False):
+                 center_momentum=0.9, ddp_mode=False):
         super().__init__()
         self.student_temp = student_temp
         self.center_momentum = center_momentum

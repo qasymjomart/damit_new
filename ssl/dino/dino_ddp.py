@@ -85,8 +85,6 @@ def train_dino():
     
     os.makedirs(args.output_dir, exist_ok=True)
     FILENAME = f"DINO_pt_{args.savename}_{'_'.join(args.datasets)}_seed_{args.seed}"
-    run = wandb.init(project="DAMIT_NEW[DINO]", name=FILENAME, config=cfg, dir=os.path.join(args.output_dir, FILENAME),
-               tags=['DINO'], group=FILENAME)
     os.makedirs(os.path.join(args.output_dir, FILENAME), exist_ok=True)
     
     utils.init_distributed_mode(args)
@@ -94,7 +92,15 @@ def train_dino():
     # print("git:\n  {}\n".format(utils.get_sha()))
     print("\n".join("%s: %s" % (k, str(v)) for k, v in sorted(dict(vars(args)).items())))
     cudnn.benchmark = True
+    
+    run = None
+    if utils.is_main_process():
+        run = wandb.init(project="DAMIT_NEW[DINO]", name=FILENAME, config=cfg, dir=os.path.join(args.output_dir, FILENAME),
+                tags=['DINO'], group=FILENAME)
 
+    logger.remove()
+    logger.add(os.path.join(args.output_dir, FILENAME, 'log.txt'))
+    
     dataset, data_loader = make_dino_dataloaders(cfg, args.datasets)
     sampler = torch.utils.data.DistributedSampler(dataset, shuffle=True) # new
     data_loader = torch.utils.data.DataLoader(
@@ -169,7 +175,7 @@ def train_dino():
     warmup_epochs = cfg['training']['warmup_epochs']
     momentum_teacher = cfg['dino']['momentum_teacher']
     
-    coeff_lr_div = 64. # originally it is 256.
+    coeff_lr_div = float(cfg['training']['batch_size_per_gpu'] * utils.get_world_size()) # originally it is 256. == batch size
     lr_schedule = utils.cosine_scheduler(
         lr * (batch_size_per_gpu * utils.get_world_size()) / coeff_lr_div,  # linear scaling rule
         min_lr,
@@ -188,7 +194,7 @@ def train_dino():
     start_epoch = 0
     start_time = time.time()
     
-    print("Starting DINO training !")
+    logger.warning("Starting DINO training !")
     for epoch in range(start_epoch, epochs):
         data_loader.sampler.set_epoch(epoch)
 
@@ -212,10 +218,10 @@ def train_dino():
         utils.save_on_master(save_dict, os.path.join(args.output_dir, FILENAME, 'checkpoint.pth'))
         if cfg['training']['saveckp_freq'] and epoch % cfg['training']['saveckp_freq'] == 0:
             utils.save_on_master(save_dict, os.path.join(args.output_dir, FILENAME, f'checkpoint{epoch:04}.pth'))
-        log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
-                     'epoch': epoch}
-        run.log(log_stats)
         if utils.is_main_process():
+            log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
+                        'epoch': epoch}
+            run.log(log_stats)
             with (Path(f"{args.output_dir}/{FILENAME}") / "log.txt").open("a") as f:
                 f.write(json.dumps(log_stats) + "\n")
     
@@ -224,6 +230,8 @@ def train_dino():
     logger.info(f'Training time {total_time_str}')
     utils.save_on_master(save_dict, os.path.join(args.output_dir, FILENAME, 'checkpoint_last.pth'))
     
+    if run is not None:
+        run.finish()
     ##############################################
     ##############################################  
 
@@ -247,10 +255,6 @@ def train_one_epoch(student, teacher, teacher_without_ddp, dino_loss, data_loade
             teacher_output = teacher(images[:2])  # only the 2 global views pass through the teacher
             student_output = student(images)
             loss = dino_loss(student_output, teacher_output, epoch)
-
-        if not math.isfinite(loss.item()):
-            logger.warning("Loss is {}, stopping training".format(loss.item()), force=True)
-            sys.exit(1)
 
         # student update
         optimizer.zero_grad()
@@ -284,10 +288,11 @@ def train_one_epoch(student, teacher, teacher_without_ddp, dino_loss, data_loade
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
         metric_logger.update(wd=optimizer.param_groups[0]["weight_decay"])
         
-        wandb_run.log({
-            'iter_loss': loss.item(),
-            'iter_lr': optimizer.param_groups[0]["lr"],
-        }, step=it)
+        if wandb_run is not None:
+            wandb_run.log({
+                'iter_loss': loss.item(),
+                'iter_lr': optimizer.param_groups[0]["lr"],
+            }, step=it)
         
         torch.cuda.empty_cache()
     # gather the stats from all processes
