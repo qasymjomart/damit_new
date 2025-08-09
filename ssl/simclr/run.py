@@ -53,7 +53,7 @@ def main():
         
     optimizer = torch.optim.AdamW(model.parameters(), cfg['optimizer']['lr'], weight_decay=cfg['optimizer']['weight_decay'])
 
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=len(train_loader), eta_min=0,
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=10*len(train_loader), eta_min=0,
                                                            last_epoch=-1)
 
     with torch.cuda.device(args.devices):

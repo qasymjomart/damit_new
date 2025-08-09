@@ -99,7 +99,13 @@ class LitViT(L.LightningModule):
     def copy_pretrained_weights(self, pre_trained_model_path):
         # load pretrained weights
         checkpoint = torch.load(pre_trained_model_path, map_location='cpu')
-        if pre_trained_model_path.endswith('.pth.tar'):
+        if 'SimCLR' in pre_trained_model_path and pre_trained_model_path.endswith('.pth.tar'):
+            checkpoint_model = checkpoint
+            for key in list(checkpoint_model.keys()):
+                if key.startswith('backbone.'):
+                    checkpoint_model[key[len('backbone.'):]] = checkpoint_model.pop(key)
+            logger.success(f"Loading SimCLR pretrained weights from {pre_trained_model_path}...")
+        elif pre_trained_model_path.endswith('.pth.tar'):
             checkpoint_model = checkpoint['net']
         elif 'DINO' in pre_trained_model_path and pre_trained_model_path.endswith('.pth'):
             checkpoint_model = checkpoint['student']
@@ -109,7 +115,7 @@ class LitViT(L.LightningModule):
             for key in list(checkpoint_model.keys()):
                 if key.startswith('backbone.'):
                     checkpoint_model[key[len('backbone.'):]] = checkpoint_model.pop(key)
-            import ipdb; ipdb.set_trace()
+            # import ipdb; ipdb.set_trace()
         elif pre_trained_model_path.endswith('.ckpt'):
             checkpoint_model = checkpoint['state_dict']
             for key in list(checkpoint_model.keys()):
@@ -119,12 +125,12 @@ class LitViT(L.LightningModule):
                 if key.startswith('backbone.'):
                     checkpoint_model[key[len('backbone.'):]] = checkpoint_model.pop(key)
         # remove keys that are not in the model
-        keys_to_remove = ['head.weight', 'head.bias', 'pos_embed', 'patch_embed.proj.weight', 'patch_embed.proj.bias']
-        state_dict = self.model.state_dict()
-        for key in keys_to_remove:
-            if key in checkpoint_model and key in state_dict and state_dict[key].shape != checkpoint_model[key].shape:
-                print(f"Removing key {key} from pretrained checkpoint")
-                del checkpoint_model[key]
+        # keys_to_remove = ['head.weight', 'head.bias', 'pos_embed', 'patch_embed.proj.weight', 'patch_embed.proj.bias']
+        # state_dict = self.model.state_dict()
+        # for key in keys_to_remove:
+            # if key in checkpoint_model and key in state_dict and state_dict[key].shape != checkpoint_model[key].shape:
+                # print(f"Removing key {key} from pretrained checkpoint")
+                # del checkpoint_model[key]
         # load the model
         msg = self.model.load_state_dict(checkpoint_model, strict=False)
         logger.critical(f'Loaded pretrained weights from {pre_trained_model_path}')

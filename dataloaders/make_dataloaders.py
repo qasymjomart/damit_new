@@ -13,6 +13,11 @@ from natsort import natsorted
 import monai
 from monai import data
 
+def replace_data_path(datapath):
+    if not os.path.exists(datapath):
+        datapath = datapath.replace('/SSD/qasymjomart/', '/SSD/guest/qasymjomart/')
+    return datapath
+
 
 def make_train_test_split_of_target(cfg, args, test_size=0.2):
     """
@@ -267,7 +272,7 @@ def make_kfold_dataloaders(cfg, args, train_df, test_df):
         monai.transforms.ToTensord(keys=["image", "label"])
     ])
 
-    nii_list = natsorted(glob.glob(cfg[args.dataset]['dataroot'] + '*/hdbet_*[!mask].nii.gz'))
+    nii_list = natsorted(glob.glob(replace_data_path(cfg[args.dataset]['dataroot']) + '*/hdbet_*[!mask].nii.gz'))
     print(f'{len(nii_list)} nii files found.')
 
     # if need to train with few samples, split in a stratified fashion

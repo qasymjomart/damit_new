@@ -22,17 +22,10 @@ class ContrastiveLearningViewGenerator(object):
                                                                                  spatial_size=(128, 128, 128), 
                                                                                  mode="trilinear"
                                                                                  ),
-                                                        # monai.transforms.ScaleIntensityd(keys=["image"]),
-                                                        # monai.transforms.RandFlipd(keys=["image"], prob=0.5, spatial_axis=1),
-                                                        # monai.transforms.RandRotated(keys=["image"], prob=0.5),
-                                                        # monai.transforms.RandBiasFieldd(keys=["image"], prob=0.8),
-                                                        # monai.transforms.RandShiftIntensityd(keys=["image"], prob=0.8, offsets=0.1),
-                                                        # monai.transforms.RandAdjustContrastd(keys=["image"], prob=0.2, gamma=(0.7, 1.3)),
-                                                        # monai.transforms.RandGaussianSmoothd(keys=["image"], sigma_x=(0.25, 1.5), sigma_y=(0.25, 1.5), sigma_z=(0.25, 1.5), prob=0.5)
                                             ])
         
         self.view_transform = monai.transforms.Compose([monai.transforms.RandSpatialCropd(keys=["image"], 
-                                                                                        roi_size=(80, 80, 80),
+                                                                                        roi_size=(72, 72, 72),
                                                                                         max_roi_size=(128, 128, 128), 
                                                                                         random_center=True,
                                                                                         random_size=True),
@@ -40,6 +33,13 @@ class ContrastiveLearningViewGenerator(object):
                                                                                  spatial_size=(128, 128, 128), 
                                                                                  mode="trilinear"
                                                                                  ),
+                                                        monai.transforms.ScaleIntensityd(keys=["image"]),
+                                                        monai.transforms.RandFlipd(keys=["image"], prob=0.5, spatial_axis=1),
+                                                        monai.transforms.RandRotated(keys=["image"], prob=0.5),
+                                                        monai.transforms.RandBiasFieldd(keys=["image"], prob=0.8),
+                                                        monai.transforms.RandShiftIntensityd(keys=["image"], prob=0.8, offsets=0.1),
+                                                        monai.transforms.RandAdjustContrastd(keys=["image"], prob=0.2, gamma=(0.7, 1.3)),
+                                                        monai.transforms.RandGaussianSmoothd(keys=["image"], sigma_x=(0.25, 1.5), sigma_y=(0.25, 1.5), sigma_z=(0.25, 1.5), prob=0.5)
         ])
         
         self.n_views = n_views

@@ -24,7 +24,7 @@ from lightning.pytorch.callbacks import ModelCheckpoint
 from lightning.pytorch.loggers import WandbLogger
 
 from lits import LitViT
-from dataloaders.make_dataloaders import make_kfold_dataloaders
+from dataloaders.make_dataloaders import make_kfold_dataloaders, replace_data_path
 from models.make_models import make_model
 # from utils.utils import load_pretrained_checkpoint
 from utils.prepare_model import prepare_model_for_training
@@ -87,7 +87,7 @@ if __name__ == '__main__':
         print('CPU mode')
     print(f'Process number: {os.getpid()} \n')
 
-    df = pd.read_csv(cfg[args.dataset]['labelsroot'])
+    df = pd.read_csv(replace_data_path(cfg[args.dataset]['labelsroot']))
     df = df[df['Group'].isin(args.classes_to_use)]
 
     cfg['MODEL']['patch_embed_fun'] = args.patch_embed_fun
