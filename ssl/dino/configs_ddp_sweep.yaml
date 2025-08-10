@@ -1,0 +1,82 @@
+model:
+  arch: 'vit_base'
+  patch_size: 16
+  drop_path_rate: 0.1
+  # out_dim: 65536 # original value
+  out_dim: 65536
+  img_size: [128,128,128]
+  in_chans: 1
+  n_classes: 0
+  embed_dim: 768
+  depth: 12
+  n_heads: 12
+  mlp_ratio: 4.0
+  qkv_bias: False
+  p: 0.
+  attn_p: 0.
+  global_avg_pool: False
+  pos_embed_type: 'learnable'
+  patch_embed_fun: 'conv3d'
+
+dino_head:
+  use_bn: False
+  in_dim: 768
+  # out_dim: 65536 # original value
+  out_dim: 65536
+
+dino:
+  norm_last_layer: False # original value is True
+  momentum_teacher: 0.9995 # original value
+  # warmup_teacher_temp: 0.04 # original value
+  warmup_teacher_temp: 0.02
+  teacher_temp: 0.04 # original val
+  warmup_teacher_temp_epochs: 30
+
+training:
+  use_fp16: True
+  batch_size_per_gpu: 8
+  batch_size: 64
+  epochs: 100
+  warmup_epochs: 10
+  saveckp_freq: 20
+
+optimizer:
+  # freeze_last_layer: 1 # original value
+  freeze_last_layer: 1
+  lr: 0.0005 # original value
+  warmup_epochs: 10
+  min_lr: 0.000001
+  optimizer: 'adamw'
+  weight_decay: 0.04
+  weight_decay_end: 0.4
+  clip_grad: 3.0 # original value
+
+transforms:
+  local_crop_img_size: [64, 64, 64]
+  global_crops_scale: [0.4, 1.]
+  local_crops_number: 6
+  local_crops_scale: [0.05, 0.4]
+  orientation: "RAS"
+  spacing: [1.75, 1.75, 1.75]
+  resize: [128, 128, 128]
+  3dino: False
+
+data:
+  num_workers: 10
+
+output_dir: "."
+cache_dir: "./monai_cache"
+
+BRATS2023:
+  dataroot: "/SSD/qasymjomart/BRATS2023/ASNR-MICCAI-BraTS2023-GLI-Challenge-TrainingData/*/*t1n.nii.gz"
+
+IXI:
+  dataroot: "/SSD/qasymjomart/IXI-T1/hdbet/IXI*/*T1.nii.gz"
+
+HCP:
+  dataroot: "/SSD/qasymjomart/HCP/hdbet/*/hdbet_n4*1.nii.gz"
+
+OASIS3:
+  dataroot: "/SSD/qasymjomart/uda/data/OASIS3/scans/*/*/*/hdbet*[!mask].nii.gz"
+  labelsroot: "/SSD/qasymjomart/uda/data/OASIS3_CLOSEST_LABELS_ONLY_HEALTHY.csv"
+  mode: 'training'

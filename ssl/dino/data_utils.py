@@ -96,8 +96,8 @@ class MONAIDataAugmentationDINO:
         
         self.initial_crop = monai.transforms.RandScaleCropd(
             keys=["image"], 
-            roi_scale=0.15, 
-            max_roi_scale=0.49,
+            roi_scale=0.4, 
+            max_roi_scale=0.8,
             random_center=True, 
             random_size=True
         )
