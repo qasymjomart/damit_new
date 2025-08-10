@@ -9,6 +9,7 @@ import pandas as pd
 import random
 import yaml
 import shutil
+import tempfile
 from sklearn.model_selection import StratifiedKFold
 from sklearn.utils.class_weight import compute_class_weight
 
@@ -17,6 +18,7 @@ import wandb
 import torch
 import torch.nn as nn
 import lightning as L
+from pytorch_lightning.loggers import CSVLogger
 
 from dataclasses import dataclass, field
 from typing import List
@@ -62,6 +64,10 @@ def train_kfold(sweeping_config):
     
     # Set seed
     set_seed(args.seed)
+    
+    # Use temporary directory for lightning logs that gets cleaned up automatically
+    temp_dir = tempfile.mkdtemp()
+    logger = CSVLogger(save_dir=temp_dir, name="temp_logs")
     
     # Loads config file for fixed configs
     f_config = open('configs/config_legacy_for_sweep.yaml','rb')
@@ -131,7 +137,9 @@ def train_kfold(sweeping_config):
                             accelerator='gpu',
                             devices=[0],
                             num_sanity_val_steps=0,
-                            # logger=None,
+                            enable_checkpointing=False,  # Disable checkpoint saving
+                            log_every_n_steps=100,
+                            logger=logger,
                             # callbacks=[checkpoint_callback],
                             )
         
@@ -151,6 +159,9 @@ def train_kfold(sweeping_config):
         # logger.info(kfold_results)
         shutil.rmtree(f'./monai_logs/train_sweep_{RUN_NAME}')
         shutil.rmtree(f'./monai_logs/test_sweep_{RUN_NAME}')
+        
+        if os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)
 
         del model, train_dataloader, test_dataloader, train_dataset, test_dataset
         
@@ -203,7 +214,7 @@ if __name__ == '__main__':
         }
     }
     
-    sweep_id = 'oc05fuhm'
+    sweep_id = 'jaz8wazn'
     if sweep_id is None:
         sweep_id = wandb.sweep(sweep_config, project="DAMIT-Sweep")
 
