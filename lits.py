@@ -66,8 +66,9 @@ class LitViT(L.LightningModule):
                  model,
                  num_classes,
                  loss_fn,
-                 learning_rate,
-                 mode,
+                 optimizer_type='adamw',
+                 learning_rate=0.0001,
+                 mode='full', # 'full' for finetuning, 'linear' for linear evaluation, etc.
                  **kwargs):
         super().__init__()
         self.model = model
@@ -77,6 +78,7 @@ class LitViT(L.LightningModule):
         # self.copy_pretrained_weights() ##
         
         # optimizer parameters
+        self.optimizer_type = optimizer_type
         self.learning_rate = learning_rate
         self.weight_decay = kwargs.get('weight_decay', 0.0001)
         self.betas = kwargs.get('betas', (0.9, 0.999))
@@ -193,10 +195,22 @@ class LitViT(L.LightningModule):
         self.log('val_loss', loss, prog_bar=True)
                 
     def configure_optimizers(self):
-        optimizer = torch.optim.AdamW(filter(lambda p: p.requires_grad, self.parameters()), 
-                                      lr=self.learning_rate, 
-                                      weight_decay=self.weight_decay,
-                                      betas=self.betas)
+        if self.optimizer_type == 'adamw':
+            optimizer = torch.optim.AdamW(filter(lambda p: p.requires_grad, self.parameters()), 
+                                        lr=self.learning_rate, 
+                                        weight_decay=self.weight_decay,
+                                        betas=self.betas)
+        elif self.optimizer_type == 'sgd':
+            optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, self.parameters()), 
+                                        lr=self.learning_rate, 
+                                        weight_decay=self.weight_decay,
+                                        momentum=0.9)
+        elif self.optimizer_type == 'adam':
+            optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, self.parameters()), 
+                                        lr=self.learning_rate, 
+                                        weight_decay=self.weight_decay,
+                                        betas=self.betas)
+        
         return {
             'optimizer': optimizer,
             'lr_scheduler': {

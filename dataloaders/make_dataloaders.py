@@ -119,7 +119,7 @@ def make_mae_pretraining_dataloaders(cfg, args):
     return pretraining_dataloader, pretrain_dataset
 
 
-def make_kfold_dataloaders(cfg, args, train_df, test_df):
+def make_kfold_dataloaders(cfg, args, train_df, test_df, verbose=True):
 
     if args.use_aug:
         # old augmentation
@@ -169,14 +169,16 @@ def make_kfold_dataloaders(cfg, args, train_df, test_df):
     ])
 
     nii_list = natsorted(glob.glob(replace_data_path(cfg[args.dataset]['dataroot']) + '*/hdbet_*[!mask].nii.gz'))
-    print(f'{len(nii_list)} nii files found.')
+    if verbose:
+        print(f'{len(nii_list)} nii files found.')
 
     # if need to train with few samples, split in a stratified fashion
     if cfg["DATALOADER"]["train_size"] in [0.1, 0.2, 0.4, 0.6, 0.8]:
         train_df, _, _, _ = train_test_split(train_df, train_df["Group"], 
                                              train_size=int(cfg["DATALOADER"]["train_size"]*len(train_df)), random_state=args.seed,
                                              shuffle=True, stratify=train_df["Group"])
-        print(f'Few sample training of {100*cfg["DATALOADER"]["train_size"]} % samples: {len(train_df)}')
+        if verbose:
+            print(f'Few sample training of {100*cfg["DATALOADER"]["train_size"]} % samples: {len(train_df)}')
 
     train_datalist = []
     for _, row in train_df.iterrows():
@@ -204,7 +206,8 @@ def make_kfold_dataloaders(cfg, args, train_df, test_df):
     train_dataset = data.PersistentDataset(data=train_datalist, 
                                            transform=train_transforms, 
                                            cache_dir=cfg['TRANSFORMS']['cache_dir_train'])
-    print(f'Train dataset len: {len(train_dataset)}')
+    if verbose:
+        print(f'Train dataset len: {len(train_dataset)}')
     
     test_datalist = []
 
@@ -221,7 +224,8 @@ def make_kfold_dataloaders(cfg, args, train_df, test_df):
     test_dataset = data.PersistentDataset(data=test_datalist, 
                                           transform=test_transforms, 
                                           cache_dir=cfg['TRANSFORMS']['cache_dir_test'])
-    print(f'Test dataset len: {len(test_dataset)}')
+    if verbose:
+        print(f'Test dataset len: {len(test_dataset)}')
 
     train_dataloader = data.DataLoader(train_dataset, 
                         batch_size=cfg['DATALOADER']['BATCH_SIZE'],

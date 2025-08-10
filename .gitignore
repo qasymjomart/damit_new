@@ -173,6 +173,9 @@ cython_debug/
 # ruff
 .ruff_cache/
 
+# lightning logs
+lightning_logs/
+
 checkpoints/
 logs/
 monai_logs/

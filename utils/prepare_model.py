@@ -5,7 +5,7 @@ from loguru import logger
 from models.mlp import MLP
 
 
-def prepare_model_for_training(model, cfg):
+def prepare_model_for_training(model, cfg, verbose=True):
     """
     Freeze certain layers of the model based on the configuration.
     
@@ -18,7 +18,8 @@ def prepare_model_for_training(model, cfg):
     """
     # get training mode
     mode = cfg['MODE']
-    logger.warning(f'Preparing model for training in {mode} mode')
+    if verbose:
+        logger.warning(f'Preparing model for training in {mode} mode')
     
     if mode == 'vpt':
         for k, p in model.named_parameters():
@@ -87,13 +88,15 @@ def prepare_model_for_training(model, cfg):
                 p.requires_grad = True
             
     # display all parameters that will be trained
-    for k, p in model.named_parameters():
-        if p.requires_grad:
-            logger.warning(f'Unfrozen params: {k}')        
+    if verbose:
+        for k, p in model.named_parameters():
+            if p.requires_grad:
+                logger.warning(f'Unfrozen params: {k}')  
+            
     
     # count the number of parameters that will be trained
     num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    logger.warning(f'Number of parameters to be trained: {num_params}')
-       
-
+    if verbose:
+        logger.warning(f'Number of parameters to be trained: {num_params}')
+    
     return model
