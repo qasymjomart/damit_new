@@ -30,6 +30,8 @@ from dino_head import DINOHead
 from vit3d import Vision_Transformer3D
 from data_utils import make_dino_dataloaders
 
+os.environ['WANDB_MODE'] = 'offline'
+
 # import lightning as L
 vits_dict = {
     'vit_base': Vision_Transformer3D,
@@ -82,7 +84,7 @@ class ArgumentsDINO:
     output_dir: str = field(default='./checkpoints/', metadata={"help": "Directory to save output files"})
 
 def train_dino():
-    with wandb.init(project="DAMIT_NEW[DINO]", tags="sweep") as run:
+    with wandb.init(project="DAMIT_NEW[DINO]", mode='offline', tags="sweep", settings=wandb.Settings(init_timeout=120)) as run:
         sweeping_config = run.config
         # args = get_args()
         args = ArgumentsDINO()
@@ -262,6 +264,7 @@ def train_dino():
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
         logger.info(f'Training time {total_time_str}')
+        dist.destroy_process_group()
         # utils.save_on_master(save_dict, os.path.join(args.output_dir, FILENAME, 'checkpoint_last.pth'))
         
     ##############################################
@@ -334,7 +337,7 @@ def train_one_epoch(student, teacher, teacher_without_ddp, dino_loss, data_loade
 
 if __name__ == '__main__':
     sweep_configurations = {
-        "method": "bayesian",
+        "method": "bayes",
         "metric": {"name": "train_loss", "goal": "minimize"},
         "parameters": {
            "out_dim": {"values": [1024, 4096]},
@@ -361,7 +364,9 @@ if __name__ == '__main__':
     logger.info(f"Process number: {os.getpid()}")
     # train_dino()
     # Initialize sweep
-    sweep_id = wandb.sweep(sweep=sweep_configurations, project="DAMIT_NEW[DINO]")
+    sweep_id = "rag72uxi"
+    if not sweep_id:
+        sweep_id = wandb.sweep(sweep=sweep_configurations, project="DAMIT_NEW[DINO]")
     logger.info(f"Sweep ID: {sweep_id}")
     # Start the sweep agent
     wandb.agent(sweep_id, function=train_dino, project="DAMIT_NEW[DINO]")
