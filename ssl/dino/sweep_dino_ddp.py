@@ -74,8 +74,8 @@ from dataclasses import dataclass, field
 from typing import List
 @dataclass
 class ArgumentsDINO:
-    config_file: str = field(default='configs_ddp.yaml', metadata={"help": "Name of the config file"})
-    savename: str = field(default='dino_experiment', metadata={"help": "Experiment name (used for saving files)"})
+    config_file: str = field(default='configs_ddp_sweep.yaml', metadata={"help": "Name of the config file"})
+    savename: str = field(default='dino_sweep', metadata={"help": "Experiment name (used for saving files)"})
     seed: int = field(default=4845, metadata={"help": "Random seed for reproducibility"})
     datasets: List[str] = field(default_factory=lambda: ['IXI'], metadata={"help": "List of datasets to use for training"})
     devices: str = field(default="0,1,2,3", metadata={"help": "GPU devices to use"})
@@ -84,6 +84,7 @@ class ArgumentsDINO:
 def train_dino():
     with wandb.init(project="DAMIT_NEW[DINO]", tags="sweep") as run:
         sweeping_config = run.config
+        print(f"Sweeping configuration: {sweeping_config}")
         # args = get_args()
         args = ArgumentsDINO()
         # Loads config file for fixed configs
@@ -114,7 +115,7 @@ def train_dino():
         cfg['transforms']['spacing'] = sweeping_config['spacing']
         
         # os.environ["CUDA_VISIBLE_DEVICES"] = args.devices
-        args.devices = [int(d) for d in args.devices.split(',')]
+        # args.devices = [int(d) for d in args.devices.split(',')]
         
         os.makedirs(args.output_dir, exist_ok=True)
         # FILENAME = f"DINO_pt_{args.savename}_{'_'.join(args.datasets)}_seed_{args.seed}"
@@ -164,12 +165,12 @@ def train_dino():
             teacher = nn.SyncBatchNorm.convert_sync_batchnorm(teacher)
 
             # we need DDP wrapper to have synchro batch norms working...
-            teacher = nn.parallel.DistributedDataParallel(teacher, device_ids=[args.devices])
+            teacher = nn.parallel.DistributedDataParallel(teacher, device_ids=[0])
             teacher_without_ddp = teacher.module
         else:
             # teacher_without_ddp and teacher are the same thing
             teacher_without_ddp = teacher
-        student = nn.parallel.DistributedDataParallel(student, device_ids=[args.devices])
+        student = nn.parallel.DistributedDataParallel(student, device_ids=[0])
         # teacher and student start with the same weights
         teacher_without_ddp.load_state_dict(student.module.state_dict())
         # there is no backpropagation through the teacher, so no need for gradients
@@ -334,7 +335,7 @@ def train_one_epoch(student, teacher, teacher_without_ddp, dino_loss, data_loade
 
 if __name__ == '__main__':
     sweep_configurations = {
-        "method": "bayesian",
+        "method": "bayesc",
         "metric": {"name": "train_loss", "goal": "minimize"},
         "parameters": {
            "out_dim": {"values": [1024, 4096]},

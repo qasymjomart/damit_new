@@ -66,7 +66,7 @@ def train_kfold(sweeping_config):
     set_seed(args.seed)
     
     # Use temporary directory for lightning logs that gets cleaned up automatically
-    temp_dir = tempfile.mkdtemp()
+    temp_dir = tempfile.mkdtemp(dir='/SSD/guest/qasymjomart/damit_new/lightning_logs/')
     logger = CSVLogger(save_dir=temp_dir, name="temp_logs")
     
     # Loads config file for fixed configs
@@ -101,8 +101,8 @@ def train_kfold(sweeping_config):
     for i, (train_index, test_index) in enumerate(skf.split(df, df['Group'])):        
         
         # Monai logs foldernames
-        legacy_cfg['TRANSFORMS']['cache_dir_train'] = f'./monai_logs/train_sweep_{RUN_NAME}'
-        legacy_cfg['TRANSFORMS']['cache_dir_test'] = f'./monai_logs/test_sweep_{RUN_NAME}'
+        legacy_cfg['TRANSFORMS']['cache_dir_train'] = f'./monai_logs/train_sweep_{RUN_NAME.replace("-", "_").replace("[", "").replace("]", "").replace(" ", "_").replace(".", "").replace(",", "")}'
+        legacy_cfg['TRANSFORMS']['cache_dir_test'] = f'./monai_logs/test_sweep_{RUN_NAME.replace("-", "_").replace("[", "").replace("]", "").replace(" ", "_").replace(".", "").replace(",", "")}'
         
         ### DATA ###
         df_train = df.iloc[train_index]
@@ -157,13 +157,13 @@ def train_kfold(sweeping_config):
         kfold_results["ratios"].append(ratios_test)
         
         # logger.info(kfold_results)
-        shutil.rmtree(f'./monai_logs/train_sweep_{RUN_NAME}')
-        shutil.rmtree(f'./monai_logs/test_sweep_{RUN_NAME}')
-        
-        if os.path.exists(temp_dir):
-            shutil.rmtree(temp_dir)
+        # shutil.rmtree(f'./monai_logs/train_sweep_{RUN_NAME.replace("-", "_").replace("[", "").replace("]", "").replace(" ", "_").replace(".", "").replace(",", "")}')
+        # shutil.rmtree(f'./monai_logs/test_sweep_{RUN_NAME.replace("-", "_").replace("[", "").replace("]", "").replace(" ", "_").replace(".", "").replace(",", "")}')
 
         del model, train_dataloader, test_dataloader, train_dataset, test_dataset
+    
+    if os.path.exists(temp_dir):
+        shutil.rmtree(temp_dir)
         
     # save kfold results acc into a file
     with open(f'./results/kfold_results_{RUN_NAME}.txt', 'w') as f:

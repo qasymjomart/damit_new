@@ -203,9 +203,11 @@ def make_kfold_dataloaders(cfg, args, train_df, test_df, verbose=True):
         label_id = args.classes_to_use.index(label)
         ratios_train[label] = sum([1 for x in train_datalist if x['label'] == label_id])
     
-    train_dataset = data.PersistentDataset(data=train_datalist, 
+    train_dataset = data.CacheDataset(data=train_datalist, 
                                            transform=train_transforms, 
-                                           cache_dir=cfg['TRANSFORMS']['cache_dir_train'])
+                                        #    num_workers=0,
+                                        #    cache_dir=cfg['TRANSFORMS']['cache_dir_train']
+                                           )
     if verbose:
         print(f'Train dataset len: {len(train_dataset)}')
     
@@ -221,9 +223,11 @@ def make_kfold_dataloaders(cfg, args, train_df, test_df, verbose=True):
             "label": label
         })
 
-    test_dataset = data.PersistentDataset(data=test_datalist, 
+    test_dataset = data.CacheDataset(data=test_datalist, 
                                           transform=test_transforms, 
-                                          cache_dir=cfg['TRANSFORMS']['cache_dir_test'])
+                                        #   num_workers=1,
+                                        #   cache_dir=cfg['TRANSFORMS']['cache_dir_test']
+                                          )
     if verbose:
         print(f'Test dataset len: {len(test_dataset)}')
 
