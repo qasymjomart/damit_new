@@ -133,6 +133,7 @@ class DINOLoss(nn.Module):
             np.ones(nepochs - warmup_teacher_temp_epochs) * teacher_temp
         ))
         self.ddp_mode = ddp_mode
+        self.counter = 0
 
     def forward(self, student_output, teacher_output, epoch):
         """
@@ -146,6 +147,8 @@ class DINOLoss(nn.Module):
         teacher_out = F.softmax((teacher_output - self.center) / temp, dim=-1)
         teacher_out = teacher_out.detach().chunk(2)
 
+        # print('TEACHER OUTPUT AFTER CENTERING AND SHARPENING:', teacher_out[0].shape, teacher_out[1].shape)
+        # import ipdb; ipdb.set_trace()        
         total_loss = 0
         n_loss_terms = 0
         for iq, q in enumerate(teacher_out):
@@ -162,6 +165,13 @@ class DINOLoss(nn.Module):
             self.update_center_ddp(teacher_output)
         else:
             self.update_center(teacher_output)
+        
+        if self.counter < 1000:
+            # save the teacher_out and student_out into numpy files
+            import copy
+            np.save(f'teacher_out_loss.npy', copy.deepcopy(teacher_out[0].detach().cpu().numpy()))
+            np.save(f'student_out_loss.npy', copy.deepcopy(student_out[0].detach().cpu().numpy()))
+                    
         return total_loss
 
     @torch.no_grad()

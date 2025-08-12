@@ -18,6 +18,7 @@ import time
 import numpy as np
 import yaml
 import wandb
+import argparse
 
 import torch
 import torch.nn as nn
@@ -61,34 +62,33 @@ def set_seed(seed):
     torch.backends.cudnn.benchmark = True
     print('Seed is set.')
 
-# def get_args():
-#     # torchrun --nproc_per_node=3 dino_ddp.py --config_file configs_ddp.yaml --savename dino_experiment --seed 4844 --datasets IXI BRATS2023 OASIS3 --devices 1,2,3
-#     parser = argparse.ArgumentParser(description='Train UDA model for MRI imaging for classification of AD')
-#     parser.add_argument('--config_file', type=str, default='configs_ddp.yaml', help='Name of the config file')
-#     parser.add_argument('--savename', type=str, help='Experiment name (used for saving files)')
-#     parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility')
-#     parser.add_argument('--datasets', type=str, nargs='+', default=['IXI'], help='List of datasets to use for training')
-#     parser.add_argument('--devices', type=str, default="0,1,2,3", help='GPU devices to use')
-#     parser.add_argument('--output_dir', type=str, default='./checkpoints/', help='Directory to save output files')
-#     return parser.parse_args()
+def get_args():
+    # torchrun --nproc_per_node=3 dino_ddp.py --config_file configs_ddp.yaml --savename dino_experiment --seed 4844 --datasets IXI BRATS2023 OASIS3 --devices 1,2,3
+    parser = argparse.ArgumentParser(description='Train UDA model for MRI imaging for classification of AD')
+    parser.add_argument('--config_file', type=str, default='configs_ddp.yaml', help='Name of the config file')
+    parser.add_argument('--savename', type=str, default="sweep_dino_experiment", help='Experiment name (used for saving files)')
+    parser.add_argument('--seed', type=int, default=4845, help='Random seed for reproducibility')
+    parser.add_argument('--datasets', type=str, nargs='+', default=['IXI'], help='List of datasets to use for training')
+    parser.add_argument('--devices', type=str, default="0,1,2,3", help='GPU devices to use')
+    # parser.add_argument('--output_dir', type=str, default='./checkpoints/', help='Directory to save output files')
+    return parser.parse_args()
 
-from dataclasses import dataclass, field
-from typing import List
-@dataclass
-class ArgumentsDINO:
-    config_file: str = field(default='configs_ddp_sweep.yaml', metadata={"help": "Name of the config file"})
-    savename: str = field(default='dino_sweep', metadata={"help": "Experiment name (used for saving files)"})
-    seed: int = field(default=4845, metadata={"help": "Random seed for reproducibility"})
-    datasets: List[str] = field(default_factory=lambda: ['IXI'], metadata={"help": "List of datasets to use for training"})
-    devices: str = field(default="0,1,2,3", metadata={"help": "GPU devices to use"})
-    output_dir: str = field(default='./checkpoints/', metadata={"help": "Directory to save output files"})
+# from dataclasses import dataclass, field
+# from typing import List
+# @dataclass
+# class ArgumentsDINO:
+#     config_file: str = field(default='configs_ddp.yaml', metadata={"help": "Name of the config file"})
+#     savename: str = field(default='dino_experiment', metadata={"help": "Experiment name (used for saving files)"})
+#     seed: int = field(default=4845, metadata={"help": "Random seed for reproducibility"})
+#     datasets: List[str] = field(default_factory=lambda: ['IXI'], metadata={"help": "List of datasets to use for training"})
+#     devices: str = field(default="0,1,2,3", metadata={"help": "GPU devices to use"})
+#     output_dir: str = field(default='./checkpoints/', metadata={"help": "Directory to save output files"})
 
 def train_dino():
     with wandb.init(project="DAMIT_NEW[DINO]", tags="sweep", settings=wandb.Settings(init_timeout=120)) as run:
         sweeping_config = run.config
-        print(f"Sweeping configuration: {sweeping_config}")
-        # args = get_args()
-        args = ArgumentsDINO()
+        args = get_args()
+        # args = ArgumentsDINO()
         # Loads config file for fixed configs
         f_config = open(args.config_file,'rb')
         cfg = yaml.load(f_config, Loader=yaml.FullLoader)
@@ -117,13 +117,13 @@ def train_dino():
         cfg['transforms']['spacing'] = sweeping_config['spacing']
         
         # os.environ["CUDA_VISIBLE_DEVICES"] = args.devices
-        # args.devices = [int(d) for d in args.devices.split(',')]
+        args.devices = [int(d) for d in args.devices.split(',')]
         
-        os.makedirs(args.output_dir, exist_ok=True)
+        # os.makedirs(args.output_dir, exist_ok=True)
         # FILENAME = f"DINO_pt_{args.savename}_{'_'.join(args.datasets)}_seed_{args.seed}"
         # os.makedirs(os.path.join(args.output_dir, FILENAME), exist_ok=True)
         
-        utils.init_distributed_mode(args)
+        # utils.init_distributed_mode(args)
         set_seed(args.seed)
         # print("git:\n  {}\n".format(utils.get_sha()))
         print("\n".join("%s: %s" % (k, str(v)) for k, v in sorted(dict(vars(args)).items())))
@@ -138,14 +138,15 @@ def train_dino():
         # logger.add(os.path.join(args.output_dir, FILENAME, 'log.txt'))
         
         dataset, data_loader = make_dino_dataloaders(cfg, args.datasets)
-        sampler = torch.utils.data.DistributedSampler(dataset, shuffle=True) # new
+        # sampler = torch.utils.data.DistributedSampler(dataset, shuffle=True) # new
         data_loader = torch.utils.data.DataLoader(
             dataset,
-            sampler=sampler,
+            # sampler=sampler,
             batch_size=cfg['training']['batch_size_per_gpu'],
             num_workers=cfg['data']['num_workers'],
             pin_memory=True,
             drop_last=True,
+            shuffle=True,
         )
         logger.success(f"Data loaded: there are {len(dataset)} images.")
         
@@ -160,21 +161,24 @@ def train_dino():
             DINOHead(**cfg['dino_head']),
         )
         # move networks to gpu
-        student, teacher = student.cuda(), teacher.cuda()
+        student, teacher = student.to(0), teacher.to(0)
         # synchronize batch norms (if any)
-        if utils.has_batchnorms(student):
-            student = nn.SyncBatchNorm.convert_sync_batchnorm(student)
-            teacher = nn.SyncBatchNorm.convert_sync_batchnorm(teacher)
+        # if utils.has_batchnorms(student):
+        #     student = nn.SyncBatchNorm.convert_sync_batchnorm(student)
+        #     teacher = nn.SyncBatchNorm.convert_sync_batchnorm(teacher)
 
-            # we need DDP wrapper to have synchro batch norms working...
-            teacher = nn.parallel.DistributedDataParallel(teacher, device_ids=[0])
-            teacher_without_ddp = teacher.module
-        else:
+        #     # we need DDP wrapper to have synchro batch norms working...
+        #     # teacher = nn.parallel.DistributedDataParallel(teacher, device_ids=[args.devices])
+        #     # teacher_without_ddp = teacher.module
+        #     teacher_without_ddp = teacher
+        # else:
             # teacher_without_ddp and teacher are the same thing
-            teacher_without_ddp = teacher
-        student = nn.parallel.DistributedDataParallel(student, device_ids=[0])
+        teacher_without_ddp = teacher
+        # student = nn.parallel.DistributedDataParallel(student, device_ids=[args.devices])
         # teacher and student start with the same weights
-        teacher_without_ddp.load_state_dict(student.module.state_dict())
+        # teacher_without_ddp.load_state_dict(student.module.state_dict())
+        teacher_without_ddp.load_state_dict(student.state_dict())
+        
         # there is no backpropagation through the teacher, so no need for gradients
         for p in teacher.parameters():
             p.requires_grad = False
@@ -188,7 +192,7 @@ def train_dino():
             cfg['dino']['teacher_temp'],
             cfg['dino']['warmup_teacher_temp_epochs'],
             cfg['training']['epochs'],
-            ddp_mode=True,
+            ddp_mode=False,
             center_momentum=sweeping_config['center_momentum'],
         ).cuda()
         
@@ -233,7 +237,7 @@ def train_dino():
         
         logger.warning("Starting DINO training !")
         for epoch in range(start_epoch, epochs):
-            data_loader.sampler.set_epoch(epoch)
+            # data_loader.sampler.set_epoch(epoch)
 
             # ============ training one epoch of DINO ... ============
             train_stats = train_one_epoch(student, teacher, teacher_without_ddp, dino_loss,
@@ -265,7 +269,7 @@ def train_dino():
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
         logger.info(f'Training time {total_time_str}')
-        dist.destroy_process_group()
+        # dist.destroy_process_group()
         # utils.save_on_master(save_dict, os.path.join(args.output_dir, FILENAME, 'checkpoint_last.pth'))
         
     ##############################################
@@ -315,7 +319,7 @@ def train_one_epoch(student, teacher, teacher_without_ddp, dino_loss, data_loade
         # EMA update for the teacher
         with torch.no_grad():
             m = momentum_schedule[it]  # momentum parameter
-            for param_q, param_k in zip(student.module.parameters(), teacher_without_ddp.parameters()):
+            for param_q, param_k in zip(student.parameters(), teacher_without_ddp.parameters()):
                 param_k.data.mul_(m).add_((1 - m) * param_q.detach().data)
 
         # logging
