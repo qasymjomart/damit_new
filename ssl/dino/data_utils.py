@@ -36,14 +36,21 @@ class MONAIDataAugmentationDINO:
         self.local_crops_number = local_crops_number
         # min_size = tuple([int(img_size * global_crops_scale[0])] * 3)
         max_size = tuple([int(resize[i] * global_crops_scale[1]) for i in range(len(resize))])
+        
+        self.initial_crop = monai.transforms.RandSpatialCropd(
+            keys=["image"],
+            roi_size=(96,96,96),
+            random_center=True,
+            prob=1.0
+        )
 
         self.first_trans = monai.transforms.Compose([
             monai.transforms.LoadImaged(keys=["image"]),
             monai.transforms.EnsureChannelFirstd(keys=["image",]),
-            monai.transforms.Orientationd(keys=["image"], axcodes=orientation),
             monai.transforms.Spacingd(keys=["image"], pixdim=tuple(spacing)),
             monai.transforms.ScaleIntensityRangePercentilesd(keys=["image"], lower=0.05, upper=99.95, b_min=-1, b_max=1, clip=True),
-            monai.transforms.CropForegroundd(keys=["image"], source_key="image"),
+            monai.transforms.Orientationd(keys=["image"], axcodes=orientation),
+            # monai.transforms.CropForegroundd(keys=["image"], source_key="image"),
             # monai.transforms.Resized(keys=["image"], spatial_size=tuple(resize)),
         ])
         
@@ -51,6 +58,7 @@ class MONAIDataAugmentationDINO:
             monai.transforms.RandFlipd(keys=["image"], prob=0.5, spatial_axis=0),
             monai.transforms.RandFlipd(keys=["image"], prob=0.5, spatial_axis=1),
             monai.transforms.RandFlipd(keys=["image"], prob=0.5, spatial_axis=2),
+            monai.transforms.RandGaussianNoised(keys=["image"], prob=0.3, mean=0.0, std=0.08),
             monai.transforms.RandAdjustContrastd(keys=["image"], prob=0.8, gamma=(0.7, 1.3)),
             monai.transforms.RandBiasFieldd(keys=["image"], prob=0.2),
             monai.transforms.RandShiftIntensityd(keys=["image"], prob=0.5, offsets=0.1),
@@ -69,6 +77,7 @@ class MONAIDataAugmentationDINO:
             monai.transforms.GaussianSmoothd(keys=["image"], sigma=1.0),
             # monai.transforms.ScaleIntensityd(keys=["image"]),
             # norm_trans
+            monai.transforms.ToTensord(keys=["image"]),
         ])
 
         self.global_trans2 = monai.transforms.Compose([
@@ -82,6 +91,7 @@ class MONAIDataAugmentationDINO:
             # monai.transforms.ScaleIntensityd(keys=["image"]),
             # Solarizationd(keys=["image"], prob=0.2, threshold=0.5),
             # norm_trans
+            monai.transforms.ToTensord(keys=["image"]),
         ])
 
         self.local_trans = monai.transforms.Compose([
@@ -92,23 +102,12 @@ class MONAIDataAugmentationDINO:
             monai.transforms.GaussianSmoothd(keys=["image"], sigma=0.5),
             # monai.transforms.ScaleIntensityd(keys=["image"]),
             # norm_trans
-        ])
-        
-        self.initial_crop = monai.transforms.RandScaleCropd(
-            keys=["image"], 
-            roi_scale=0.4, 
-            max_roi_scale=0.8,
-            random_center=True, 
-            random_size=True
-        )
-       
+            monai.transforms.ToTensord(keys=["image"]),
+        ])       
 
     def __call__(self, image):
         image = self.first_trans(image)
-        
-        # Double Crop strategy
         image = self.initial_crop(image)
-        
         crops = []
         crops.append(self.global_trans1(image)['image'])
         crops.append(self.global_trans2(image)['image'])
