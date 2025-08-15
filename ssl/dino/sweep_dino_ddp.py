@@ -265,7 +265,7 @@ def train_dino():
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
         logger.info(f'Training time {total_time_str}')
-        dist.destroy_process_group()
+        # dist.destroy_process_group()
         # utils.save_on_master(save_dict, os.path.join(args.output_dir, FILENAME, 'checkpoint_last.pth'))
         
     ##############################################

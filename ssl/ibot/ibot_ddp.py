@@ -64,9 +64,9 @@ def get_args():
     parser = argparse.ArgumentParser(description='Train UDA model for MRI imaging for classification of AD')
     parser.add_argument('--config_file', type=str, default='configs_ddp.yaml', help='Name of the config file')
     parser.add_argument('--savename', type=str, help='Experiment name (used for saving files)')
-    parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility')
+    parser.add_argument('--seed', type=int, default=4845, help='Random seed for reproducibility')
     parser.add_argument('--datasets', type=str, nargs='+', default=['IXI'], help='List of datasets to use for training')
-    parser.add_argument('--devices', type=str, default="0,1,2,3", help='GPU devices to use')
+    # parser.add_argument('--devices', type=str, default="0,1,2,3", help='GPU devices to use')
     parser.add_argument('--output_dir', type=str, default='./checkpoints/', help='Directory to save output files')
     return parser.parse_args()
 
@@ -75,13 +75,13 @@ def train_ibot():
     # Loads config file for fixed configs
     f_config = open(args.config_file,'rb')
     cfg = yaml.load(f_config, Loader=yaml.FullLoader)
-    os.environ["CUDA_VISIBLE_DEVICES"] = args.devices
+    # os.environ["CUDA_VISIBLE_DEVICES"] = args.devices
     # args.devices = [int(d)-1 for d in args.devices.split(',')]
     args.devices = [0]
     
     os.makedirs(args.output_dir, exist_ok=True)
     FILENAME = f"iBOT_pt_{args.savename}_{'_'.join(args.datasets)}_seed_{args.seed}"
-    run = wandb.init(project="DAMIT_NEW[DINO]", name=FILENAME, config=cfg, dir=os.path.join(args.output_dir, FILENAME),
+    run = wandb.init(project="DAMIT_NEW[iBOT]", name=FILENAME, config=cfg, dir=os.path.join(args.output_dir, FILENAME),
                tags=['iBOT'], group=FILENAME)
     os.makedirs(os.path.join(args.output_dir, FILENAME), exist_ok=True)
     
@@ -93,6 +93,7 @@ def train_ibot():
     # ============ preparing data ... ============
     dataset, sampler, data_loader = make_ibot_dataloaders(cfg, args.datasets)    
     print(f"Data loaded: there are {len(dataset)} images.")
+    print(f"Data loader: {len(data_loader)} batches per epoch, {data_loader.batch_size} batch size, {data_loader.num_workers} workers.")
 
     ### LAST STOPPED HERE AS OF July 14, 6:53pm ###
 
@@ -129,12 +130,12 @@ def train_ibot():
         teacher = nn.SyncBatchNorm.convert_sync_batchnorm(teacher)
 
         # we need DDP wrapper to have synchro batch norms working...
-        teacher = nn.parallel.DistributedDataParallel(teacher, device_ids=[args.devices])
+        teacher = nn.parallel.DistributedDataParallel(teacher, device_ids=[utils.get_rank()])
         teacher_without_ddp = teacher.module
     else:
         # teacher_without_ddp and teacher are the same thing
         teacher_without_ddp = teacher
-    student = nn.parallel.DistributedDataParallel(student, device_ids=[args.devices])
+    student = nn.parallel.DistributedDataParallel(student, device_ids=[utils.get_rank()])
     # teacher and student start with the same weights
     teacher_without_ddp.load_state_dict(student.module.state_dict(), strict=False)
     # there is no backpropagation through the teacher, so no need for gradients
@@ -208,7 +209,7 @@ def train_ibot():
         # ============ training one epoch of iBOT ... ============
         train_stats = train_one_epoch(student, teacher, teacher_without_ddp, ibot_loss,
             data_loader, optimizer, lr_schedule, wd_schedule, momentum_schedule,
-            epoch, fp16_scaler, cfg)
+            epoch, run, fp16_scaler, cfg)
 
         # ============ writing logs ... ============
         save_dict = {
@@ -227,7 +228,7 @@ def train_ibot():
             utils.save_on_master(save_dict, os.path.join(args.output_dir, FILENAME, f'checkpoint{epoch:04}.pth'))
         log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
                      'epoch': epoch}
-        run.log(log_stats, step=epoch)
+        run.log(log_stats)
         if utils.is_main_process():
             with (Path(args.output_dir) / "log.txt").open("a") as f:
                 f.write(json.dumps(log_stats) + "\n")
@@ -241,7 +242,7 @@ def train_ibot():
 
 def train_one_epoch(student, teacher, teacher_without_ddp, ibot_loss, data_loader,
                     optimizer, lr_schedule, wd_schedule, momentum_schedule,epoch,
-                    fp16_scaler, cfg):
+                    run, fp16_scaler, cfg):
     metric_logger = utils.MetricLogger(delimiter="  ")
     header = 'Epoch: [{}/{}]'.format(epoch, cfg['training']['epochs'])
     
@@ -289,11 +290,11 @@ def train_one_epoch(student, teacher, teacher_without_ddp, ibot_loss, data_loade
             sys.exit(1)
 
         # log statistics
-        probs1 = teacher_output[0].chunk(cfg['transforms']['global_crops_number'])
-        probs2 = student_output[0].chunk(cfg['transforms']['global_crops_number'])
-        pred1 = utils.concat_all_gather(probs1[0].max(dim=1)[1]) 
-        pred2 = utils.concat_all_gather(probs2[1].max(dim=1)[1])
-        acc = (pred1 == pred2).sum() / pred1.size(0)
+        # probs1 = teacher_output[0].chunk(cfg['transforms']['global_crops_number'])
+        # probs2 = student_output[0].chunk(cfg['transforms']['global_crops_number'])
+        # pred1 = utils.concat_all_gather(probs1[0].max(dim=1)[1]) 
+        # pred2 = utils.concat_all_gather(probs2[1].max(dim=1)[1])
+        # acc = (pred1 == pred2).sum() / pred1.size(0)
         # pred_labels.append(pred1)
         # real_labels.append(utils.concat_all_gather(labels.to(pred1.device)))
 
@@ -330,7 +331,12 @@ def train_one_epoch(student, teacher, teacher_without_ddp, ibot_loss, data_loade
             metric_logger.update(**{key: value.item()})
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
         metric_logger.update(wd=optimizer.param_groups[0]["weight_decay"])
-        metric_logger.update(acc=acc)
+        # metric_logger.update(acc=acc)
+        
+        run.log({'iter_loss': loss.item(),
+                 'iter_patch_loss': all_loss['patch'].item(),
+                 'iter_cls_loss': all_loss['cls'].item()
+                 }, step=it)
 
     # pred_labels = torch.cat(pred_labels).cpu().detach().numpy()
     # real_labels = torch.cat(real_labels).cpu().detach().numpy()

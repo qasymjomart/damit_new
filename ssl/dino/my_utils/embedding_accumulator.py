@@ -30,7 +30,7 @@ class EmbeddingAccumulator:
         # Save updated embeddings
         np.save(self.save_path, all_embeddings)
         
-        print(f"Saved {self.current_count}/{self.target_samples} samples")
+        # print(f"Saved {self.current_count}/{self.target_samples} samples")
         
         # Check if we've reached target
         if self.current_count >= self.target_samples:

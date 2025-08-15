@@ -33,11 +33,13 @@ from pathlib import Path
 import utils
 from dino_head import DINOHead
 from vit3d import Vision_Transformer3D
+from cnn import SimpleConv3DEncoder
 from data_utils import make_dino_dataloaders
 
 # import lightning as L
 vits_dict = {
     'vit_base': Vision_Transformer3D,
+    'simple_cnn': SimpleConv3DEncoder
 }
 
 def make_dino_models(cfg):

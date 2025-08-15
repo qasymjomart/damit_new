@@ -65,11 +65,11 @@ def set_seed(seed):
 def get_args():
     # torchrun --nproc_per_node=3 dino_ddp.py --config_file configs_ddp.yaml --savename dino_experiment --seed 4844 --datasets IXI BRATS2023 OASIS3 --devices 1,2,3
     parser = argparse.ArgumentParser(description='Train UDA model for MRI imaging for classification of AD')
-    parser.add_argument('--config_file', type=str, default='configs_ddp.yaml', help='Name of the config file')
+    parser.add_argument('--config_file', type=str, default='configs_ddp_sweep.yaml', help='Name of the config file')
     parser.add_argument('--savename', type=str, default="sweep_dino_experiment", help='Experiment name (used for saving files)')
     parser.add_argument('--seed', type=int, default=4845, help='Random seed for reproducibility')
     parser.add_argument('--datasets', type=str, nargs='+', default=['IXI'], help='List of datasets to use for training')
-    parser.add_argument('--devices', type=str, default="0,1,2,3", help='GPU devices to use')
+    # parser.add_argument('--devices', type=str, default="0,1,2,3", help='GPU devices to use')
     # parser.add_argument('--output_dir', type=str, default='./checkpoints/', help='Directory to save output files')
     return parser.parse_args()
 
@@ -87,6 +87,7 @@ def get_args():
 def train_dino():
     with wandb.init(project="DAMIT_NEW[DINO]", tags="sweep", settings=wandb.Settings(init_timeout=120)) as run:
         sweeping_config = run.config
+        print(f"Sweeping config: {sweeping_config}")
         args = get_args()
         # args = ArgumentsDINO()
         # Loads config file for fixed configs
@@ -94,30 +95,31 @@ def train_dino():
         cfg = yaml.load(f_config, Loader=yaml.FullLoader)
         
         # assign sweeping config to cfg
-        cfg['model']['out_dim'] = sweeping_config['out_dim']
-        cfg['dino_head']['out_dim'] = sweeping_config['out_dim']
-        cfg['dino']['norm_last_layer'] = sweeping_config['norm_last_layer']
+        # cfg['model']['out_dim'] = sweeping_config['out_dim']
+        # cfg['dino_head']['out_dim'] = sweeping_config['out_dim']
+        # cfg['dino']['norm_last_layer'] = sweeping_config['norm_last_layer']
         cfg['dino']['momentum_teacher'] = sweeping_config['momentum_teacher']
-        cfg['dino']['teacher_temp'] = sweeping_config['teacher_temp']
+        cfg['dino']['warmup_teacher_temp'] = sweeping_config['teacher_temp'][0]
+        cfg['dino']['teacher_temp'] = sweeping_config['teacher_temp'][1]
         
         cfg['training']['epochs'] = sweeping_config['epochs']
         cfg['training']['batch_size_per_gpu'] = sweeping_config['batch_size_per_gpu']
         
-        cfg['optimizer']['freeze_last_layer'] = sweeping_config['freeze_last_layer']
-        cfg['optimizer']['lr'] = sweeping_config['lr']
-        cfg['optimizer']['min_lr'] = sweeping_config['min_lr']
-        cfg['training']['warmup_epochs'] = sweeping_config['warmup_epochs']
-        cfg['optimizer']['optimizer'] = sweeping_config['optimizer']
-        cfg['optimizer']['weight_decay'] = sweeping_config['weight_decay']
+        # cfg['optimizer']['freeze_last_layer'] = sweeping_config['freeze_last_layer']
+        # cfg['optimizer']['lr'] = sweeping_config['lr']
+        # cfg['optimizer']['min_lr'] = sweeping_config['min_lr']
+        # cfg['training']['warmup_epochs'] = sweeping_config['warmup_epochs']
+        # cfg['optimizer']['optimizer'] = sweeping_config['optimizer']
+        # cfg['optimizer']['weight_decay'] = sweeping_config['weight_decay']
         
         cfg['transforms']['local_crop_img_size'] = sweeping_config['local_crop_img_size']
-        cfg['transforms']['global_crops_scale'] = sweeping_config['global_crops_scale']
-        cfg['transforms']['local_crops_scale'] = sweeping_config['local_crops_scale']
-        cfg['transforms']['local_crops_number'] = sweeping_config['local_crops_number']
-        cfg['transforms']['spacing'] = sweeping_config['spacing']
+        # cfg['transforms']['global_crops_scale'] = sweeping_config['global_crops_scale']
+        # cfg['transforms']['local_crops_scale'] = sweeping_config['local_crops_scale']
+        # cfg['transforms']['local_crops_number'] = sweeping_config['local_crops_number']
+        # cfg['transforms']['spacing'] = sweeping_config['spacing']
         
         # os.environ["CUDA_VISIBLE_DEVICES"] = args.devices
-        args.devices = [int(d) for d in args.devices.split(',')]
+        # args.devices = [int(d) for d in args.devices.split(',')]
         
         # os.makedirs(args.output_dir, exist_ok=True)
         # FILENAME = f"DINO_pt_{args.savename}_{'_'.join(args.datasets)}_seed_{args.seed}"
@@ -161,7 +163,7 @@ def train_dino():
             DINOHead(**cfg['dino_head']),
         )
         # move networks to gpu
-        student, teacher = student.to(0), teacher.to(0)
+        student, teacher = student.to(0), teacher.to(0) # move to GPU 0 because we use CUDA_VISIBLE_DEVICES=#GPU infront of this script
         # synchronize batch norms (if any)
         # if utils.has_batchnorms(student):
         #     student = nn.SyncBatchNorm.convert_sync_batchnorm(student)
@@ -173,11 +175,11 @@ def train_dino():
         #     teacher_without_ddp = teacher
         # else:
             # teacher_without_ddp and teacher are the same thing
-        teacher_without_ddp = teacher
+        # teacher_without_ddp = teacher
         # student = nn.parallel.DistributedDataParallel(student, device_ids=[args.devices])
         # teacher and student start with the same weights
         # teacher_without_ddp.load_state_dict(student.module.state_dict())
-        teacher_without_ddp.load_state_dict(student.state_dict())
+        # teacher_without_ddp.load_state_dict(student.state_dict())
         
         # there is no backpropagation through the teacher, so no need for gradients
         for p in teacher.parameters():
@@ -193,7 +195,7 @@ def train_dino():
             cfg['dino']['warmup_teacher_temp_epochs'],
             cfg['training']['epochs'],
             ddp_mode=False,
-            center_momentum=sweeping_config['center_momentum'],
+            center_momentum=cfg['dino']['center_momentum'],
         ).cuda()
         
         # ============ preparing optimizer ... ============
@@ -216,7 +218,8 @@ def train_dino():
         warmup_epochs = cfg['training']['warmup_epochs']
         momentum_teacher = cfg['dino']['momentum_teacher']
         
-        coeff_lr_div = float(cfg['training']['batch_size_per_gpu'] * utils.get_world_size()) # originally it is 256. == batch size
+        # coeff_lr_div = float(cfg['training']['batch_size_per_gpu'] * utils.get_world_size()) # originally it is 256. == batch size
+        coeff_lr_div = 256.0  # original DINO paper uses 256 as the batch size, so we use it to scale the learning rate
         lr_schedule = utils.cosine_scheduler(
             lr * (batch_size_per_gpu * utils.get_world_size()) / coeff_lr_div,  # linear scaling rule
             min_lr,
@@ -236,14 +239,25 @@ def train_dino():
         start_time = time.time()
         
         logger.warning("Starting DINO training !")
+        
+        previous_loss = 0.0 # for calculating the loss change rate
+        loss_change_rate = 0.0
+        total_loss_change_rate = 0.0
+        no_times_loss_increase = 0
+        
         for epoch in range(start_epoch, epochs):
             # data_loader.sampler.set_epoch(epoch)
 
             # ============ training one epoch of DINO ... ============
-            train_stats = train_one_epoch(student, teacher, teacher_without_ddp, dino_loss,
+            train_stats = train_one_epoch(student, teacher, dino_loss,
                 data_loader, optimizer, lr_schedule, wd_schedule, momentum_schedule,
                 epoch, run, fp16_scaler, cfg)
 
+            loss_change_rate = train_stats['loss'] - previous_loss
+            total_loss_change_rate += loss_change_rate
+            if loss_change_rate > 0:
+                no_times_loss_increase += 1
+            
             # ============ writing logs ... ============
             save_dict = {
                 'student': student.state_dict(),
@@ -261,6 +275,9 @@ def train_dino():
             #     utils.save_on_master(save_dict, os.path.join(args.output_dir, FILENAME, f'checkpoint{epoch:04}.pth'))
             if utils.is_main_process():
                 log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
+                            'loss_change_rate': loss_change_rate,
+                            'total_loss_change_rate': total_loss_change_rate,
+                            'no_times_loss_increase': no_times_loss_increase,
                             'epoch': epoch}
                 run.log(log_stats)
                 # with (Path(f"{args.output_dir}/{FILENAME}") / "log.txt").open("a") as f:
@@ -275,7 +292,7 @@ def train_dino():
     ##############################################
     ##############################################  
 
-def train_one_epoch(student, teacher, teacher_without_ddp, dino_loss, data_loader,
+def train_one_epoch(student, teacher, dino_loss, data_loader,
                     optimizer, lr_schedule, wd_schedule, momentum_schedule,epoch,
                     wandb_run, fp16_scaler, cfg):
     metric_logger = utils.MetricLogger(delimiter="  ")
@@ -319,7 +336,7 @@ def train_one_epoch(student, teacher, teacher_without_ddp, dino_loss, data_loade
         # EMA update for the teacher
         with torch.no_grad():
             m = momentum_schedule[it]  # momentum parameter
-            for param_q, param_k in zip(student.parameters(), teacher_without_ddp.parameters()):
+            for param_q, param_k in zip(student.parameters(), teacher.parameters()):
                 param_k.data.mul_(m).add_((1 - m) * param_q.detach().data)
 
         # logging
@@ -343,33 +360,34 @@ def train_one_epoch(student, teacher, teacher_without_ddp, dino_loss, data_loade
 if __name__ == '__main__':
     sweep_configurations = {
         "method": "bayes",
-        "metric": {"name": "train_loss", "goal": "minimize"},
+        "metric": {"name": "total_loss_change_rate", # kinda new metric for me lol :)
+                   "goal": "minimize"},
         "parameters": {
-           "out_dim": {"values": [1024, 4096]},
-           "norm_last_layer": {"values": [True, False]},
-           "momentum_teacher": {"values": [0.996, 0.999, 0.9999]},
-           "teacher_temp": {"values": [0.04, 0.07]},
-           "center_momentum": {"values": [0.9, 0.95, 0.99]},
-           "epochs": {"values": [40]},
-           "batch_size_per_gpu": {"values": [8]},
-           "freeze_last_layer": {"values": [1, 3]},
-           "lr": {"values": [1e-5, 1e-3, 1e-2]},
-           "min_lr": {"values": [1e-6, 1e-7]},
-           "warmup_epochs": {"values": [10, 20]},
-           "optimizer": {"values": ["adamw"]},
-           "weight_decay": {"values": [0.4, 0.05, 0.001]},
-           "local_crop_img_size": {"values": [[64, 64, 64], [80, 80, 80]]},
-           "global_crops_scale": {"values": [[0.4, 1.], [0.7, 1.]]},
-           "local_crops_scale": {"values": [[0.05, 0.4], [0.1, 0.6]]},
-           "local_crops_number": {"values": [3, 6, 8]},
-           "spacing": {"values": [[1.75, 1.75, 1.75], [1, 1, 1]]},
+        #    "out_dim": {"values": [1024, 4096]},
+        #    "norm_last_layer": {"values": [True, False]},
+           "momentum_teacher": {"values": [0.996, 0.999, 0.9995]},
+           "teacher_temp": {"values": [[0.001, 0.005], [0.001, 0.01], [0.002, 0.005], [0.005, 0.005], [0.005, 0.008], [0.008, 0.008]]},
+           "center_momentum": {"values": [0.9, 0.95, 0.99, 0.999]},
+           "epochs": {"values": [100]},
+           "batch_size_per_gpu": {"values": [8, 16]},
+        #    "freeze_last_layer": {"values": [1, 3]},
+        #    "lr": {"values": [1e-5, 1e-3, 1e-2]},
+        #    "min_lr": {"values": [1e-6, 1e-7]},
+        #    "warmup_epochs": {"values": [10, 20]},
+        #    "optimizer": {"values": ["adamw"]},
+        #    "weight_decay": {"values": [0.4, 0.05, 0.001]},
+           "local_crop_img_size": {"values": [[48, 48, 48], [64, 64, 64]]},
+        #    "global_crops_scale": {"values": [[0.4, 1.], [0.7, 1.]]},
+        #    "local_crops_scale": {"values": [[0.05, 0.4], [0.1, 0.6]]},
+        #    "local_crops_number": {"values": [3, 6, 8]},
+        #    "spacing": {"values": [[1.75, 1.75, 1.75], [1, 1, 1]]},
         }
     }
     # Process number
     logger.info(f"Process number: {os.getpid()}")
     # train_dino()
     # Initialize sweep
-    sweep_id = "rag72uxi"
+    sweep_id = 'm8vtq6tg'
     if not sweep_id:
         sweep_id = wandb.sweep(sweep=sweep_configurations, project="DAMIT_NEW[DINO]")
     logger.info(f"Sweep ID: {sweep_id}")

@@ -58,6 +58,14 @@ class ImageFolderMask(monai.data.PersistentDataset):
         output = tuple([output])
                         
         masks = []
+        # if random.random() < 0.5:
+        #     # no mask
+        #     for img in output[0]:
+        #         H, W, D = img.shape[1] // self.psz, img.shape[2] // self.psz, img.shape[3] // self.psz
+        #         mask = np.zeros((H, W, D), dtype=bool)
+        #         masks.append(mask)
+        #     return output + (masks,)
+        
         for img in output[0]:
             try:
                 H, W, D = img.shape[1] // self.psz, img.shape[2] // self.psz, img.shape[3] // self.psz

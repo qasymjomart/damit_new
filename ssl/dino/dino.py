@@ -34,6 +34,7 @@ from pathlib import Path
 import utils
 from dino_head import DINOHead
 from vit3d import Vision_Transformer3D
+from cnn import SimpleConv3DEncoder
 from data_utils import make_dino_dataloaders
 
 from my_utils.embedding_accumulator import EmbeddingAccumulator
@@ -41,6 +42,7 @@ from my_utils.embedding_accumulator import EmbeddingAccumulator
 # import lightning as L
 vits_dict = {
     'vit_base': Vision_Transformer3D,
+    'simple_cnn': SimpleConv3DEncoder
 }
 
 def make_dino_models(cfg):
@@ -126,6 +128,7 @@ def train_dino():
     )
     # move networks to gpu
     student, teacher = student.cuda(), teacher.cuda()
+    
     # synchronize batch norms (if any)
     if utils.has_batchnorms(student):
         student = nn.SyncBatchNorm.convert_sync_batchnorm(student)
@@ -134,11 +137,11 @@ def train_dino():
         # we need DDP wrapper to have synchro batch norms working...
         # teacher = nn.parallel.DistributedDataParallel(teacher, device_ids=[args.devices])
         # teacher_without_ddp = teacher.module
-    teacher_without_ddp = teacher
+    # teacher_without_ddp = teacher
     # student = nn.parallel.DistributedDataParallel(student, device_ids=[args.devices])
     # teacher and student start with the same weights
     # teacher_without_ddp.load_state_dict(student.module.state_dict())
-    teacher_without_ddp.load_state_dict(student.state_dict())
+    teacher.load_state_dict(student.state_dict())
     
     # there is no backpropagation through the teacher, so no need for gradients
     for p in teacher.parameters():
@@ -153,6 +156,7 @@ def train_dino():
         cfg['dino']['teacher_temp'],
         cfg['dino']['warmup_teacher_temp_epochs'],
         cfg['training']['epochs'],
+        center_momentum=cfg['dino']['center_momentum'],
         ddp_mode=False
     ).cuda()
     
@@ -192,6 +196,8 @@ def train_dino():
     momentum_schedule = utils.cosine_scheduler(momentum_teacher, 1, epochs, len(data_loader))
     logger.success("Loss, optimizer and schedulers ready.")
     
+    min_loss = 0 # minimum loss for saving the best model
+    
     start_epoch = 0
     start_time = time.time()
     
@@ -200,9 +206,9 @@ def train_dino():
     for epoch in range(start_epoch, epochs):
         
         # ============ training one epoch of DINO ... ============
-        train_stats = train_one_epoch(student, teacher, teacher_without_ddp, dino_loss,
+        train_stats = train_one_epoch(student, teacher, dino_loss,
             data_loader, optimizer, lr_schedule, wd_schedule, momentum_schedule,
-            epoch, run, fp16_scaler, cfg)
+            epoch, run, fp16_scaler, cfg, args)
 
         # ============ writing logs ... ============
         save_dict = {
@@ -216,6 +222,11 @@ def train_dino():
         }
         if fp16_scaler is not None:
             save_dict['fp16_scaler'] = fp16_scaler.state_dict()
+        if utils.is_main_process() and min_loss > train_stats['loss']:
+            min_loss = train_stats['loss']
+            logger.success(f"Saving best model with loss {min_loss} at epoch {epoch}.")
+            # save the best model
+            utils.save_on_master(save_dict, os.path.join(args.output_dir, FILENAME, 'checkpoint_best.pth'))
         # utils.save_on_master(save_dict, os.path.join(args.output_dir, FILENAME, 'checkpoint.pth'))
         # if cfg['training']['saveckp_freq'] and epoch % cfg['training']['saveckp_freq'] == 0:
             # utils.save_on_master(save_dict, os.path.join(args.output_dir, FILENAME, f'checkpoint{epoch:04}.pth'))
@@ -236,11 +247,11 @@ def train_dino():
     ##############################################
     ##############################################  
 
-def train_one_epoch(student, teacher, teacher_without_ddp, dino_loss, data_loader,
+def train_one_epoch(student, teacher, dino_loss, data_loader,
                     optimizer, lr_schedule, wd_schedule, momentum_schedule,epoch,
-                    wandb_run, fp16_scaler, cfg):
-    student_embedding_accumulator = EmbeddingAccumulator('student_embeddings.npy')
-    teacher_embedding_accumulator = EmbeddingAccumulator('teacher_embeddings.npy')
+                    wandb_run, fp16_scaler, cfg, args):
+    student_embedding_accumulator = EmbeddingAccumulator(f'{args.savename}_student_embeddings.npy')
+    teacher_embedding_accumulator = EmbeddingAccumulator(f'{args.savename}_teacher_embeddings.npy')
     metric_logger = utils.MetricLogger(delimiter="  ")
     header = 'Epoch: [{}/{}]'.format(epoch, cfg['training']['epochs'])
     for it, images in enumerate(metric_logger.log_every(data_loader, 10, header)):
@@ -287,7 +298,7 @@ def train_one_epoch(student, teacher, teacher_without_ddp, dino_loss, data_loade
         # EMA update for the teacher
         with torch.no_grad():
             m = momentum_schedule[it]  # momentum parameter
-            for param_q, param_k in zip(student.parameters(), teacher_without_ddp.parameters()):
+            for param_q, param_k in zip(student.parameters(), teacher.parameters()):
                 param_k.data.mul_(m).add_((1 - m) * param_q.detach().data)
 
         # logging

@@ -28,7 +28,7 @@ ibot_model:
 
 ibot_head:
   patch_out_dim: 8192
-  shared_head: False # paper True?
+  shared_head: True # paper True? does not matter much I guess
   shared_head_teacher: True
   norm_in_head: null
   norm_last_layer: True
@@ -38,12 +38,12 @@ ibot_head:
   out_dim: 8192
 
 ibot:
-  momentum_teacher: 0.996
-  warmup_teacher_temp: 0.04
-  teacher_temp: 0.04
+  momentum_teacher: 0.9995 # original paper value is 0.996
+  warmup_teacher_temp: 0.005
+  teacher_temp: 0.005
   warmup_teacher_temp_epochs: 30
-  warmup_teacher_patch_temp: 0.04
-  teacher_patch_temp: 0.07
+  warmup_teacher_patch_temp: 0.005
+  teacher_patch_temp: 0.02
 
 training:
   use_fp16: True
@@ -67,7 +67,7 @@ optimizer:
 transforms:
   local_crop_img_size: [64, 64, 64]
   global_crops_number: 2 # paper?
-  global_crops_scale: [0.14, 1.] # check paper?
+  global_crops_scale: [0.4, 1.] # check paper?
   local_crops_number: 8 # if 0, then multi-crop training is disabled, also check paper
   local_crops_scale: [0.05, 0.4]
   orientation: "RAS"

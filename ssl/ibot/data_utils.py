@@ -41,21 +41,25 @@ class MONAIDataAugmentationiBOT:
             monai.transforms.LoadImaged(keys=["image"]),
             monai.transforms.EnsureChannelFirstd(keys=["image",]),
             monai.transforms.Orientationd(keys=["image"], axcodes=orientation),
+            monai.transforms.ScaleIntensityRangePercentilesd(keys=["image"], lower=0.05, upper=99.95, b_min=-1, b_max=1, clip=True),
             monai.transforms.Spacingd(keys=["image"], pixdim=tuple(spacing)),
-            monai.transforms.Resized(keys=["image"], spatial_size=tuple(resize)),
+            # monai.transforms.CropForegroundd(keys=["image"], source_key="image"),
+            # monai.transforms.Resized(keys=["image"], spatial_size=tuple(resize)),
         ])
         
         rand_trans = monai.transforms.Compose([
             monai.transforms.RandFlipd(keys=["image"], prob=0.5, spatial_axis=0),
+            monai.transforms.RandFlipd(keys=["image"], prob=0.5, spatial_axis=1),
+            monai.transforms.RandFlipd(keys=["image"], prob=0.5, spatial_axis=2),
             monai.transforms.RandAdjustContrastd(keys=["image"], prob=0.8, gamma=(0.7, 1.3)),
             monai.transforms.RandBiasFieldd(keys=["image"], prob=0.2),
             monai.transforms.RandShiftIntensityd(keys=["image"], prob=0.5, offsets=0.1),
             monai.transforms.RandScaleIntensityd(keys=["image"], prob=0.5, factors=0.2),
         ])
 
-        norm_trans = monai.transforms.Compose([
-            monai.transforms.NormalizeIntensityd(keys=["image"], nonzero=True),
-        ])
+        # norm_trans = monai.transforms.Compose([
+        #     monai.transforms.NormalizeIntensityd(keys=["image"], nonzero=True),
+        # ])
         
         self.global_crops_number = global_crops_number
         self.global_trans1 = monai.transforms.Compose([
@@ -65,8 +69,8 @@ class MONAIDataAugmentationiBOT:
             monai.transforms.Resized(keys=["image"], spatial_size=max_size, mode="trilinear"),
             rand_trans,
             monai.transforms.GaussianSmoothd(keys=["image"], sigma=1.0),
-            monai.transforms.ScaleIntensityd(keys=["image"]),
-            norm_trans
+            # monai.transforms.ScaleIntensityd(keys=["image"]),
+            # norm_trans
         ])
 
         self.global_trans2 = monai.transforms.Compose([
@@ -78,9 +82,9 @@ class MONAIDataAugmentationiBOT:
             monai.transforms.Resized(keys=["image"], spatial_size=max_size, mode="trilinear"),
             rand_trans,
             monai.transforms.GaussianSmoothd(keys=["image"], sigma=1.0),
-            monai.transforms.ScaleIntensityd(keys=["image"]),
-            Solarizationd(keys=["image"], prob=0.2, threshold=0.5),
-            norm_trans
+            # monai.transforms.ScaleIntensityd(keys=["image"]),
+            # Solarizationd(keys=["image"], prob=0.2, threshold=0.5),
+            # norm_trans
         ])
 
         self.local_trans = monai.transforms.Compose([
@@ -90,8 +94,8 @@ class MONAIDataAugmentationiBOT:
             monai.transforms.Resized(keys=["image"], spatial_size=tuple(local_crop_img_size), mode="trilinear"),
             rand_trans,
             monai.transforms.GaussianSmoothd(keys=["image"], sigma=1.0),
-            monai.transforms.ScaleIntensityd(keys=["image"]),
-            norm_trans
+            # monai.transforms.ScaleIntensityd(keys=["image"]),
+            # norm_trans
         ])
        
 
@@ -112,7 +116,7 @@ def get_dataset_list(datasets, cfg):
         print('Used BRATS2023')    
 
     if "IXI" in datasets:
-        datapath_list = datapath_list + glob.glob(cfg['IXI']['dataroot'])[:17]
+        datapath_list = datapath_list + glob.glob(cfg['IXI']['dataroot'])
     
     if "HCP" in datasets:
         datapath_list = datapath_list + glob.glob(cfg['HCP']['dataroot'])

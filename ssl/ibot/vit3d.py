@@ -467,7 +467,7 @@ class Vision_Transformer3D(nn.Module):
     
     def prepare_tokens(self, x, mask=None):
         B, C, D, H, W = x.shape
-        x = self.patch_embed(x)  # (B, n_patches, embed_dim)
+        x = self.patch_embed(x)  # (B, C, D, H, W) --> (B, embed_dim, n_patches[0], n_patches[1], n_patches[2])
         
         if mask is not None:
             x = self.mask_model(x, mask)

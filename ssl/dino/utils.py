@@ -166,11 +166,14 @@ class DINOLoss(nn.Module):
         else:
             self.update_center(teacher_output)
         
-        if self.counter < 1000:
+        # if self.counter < 1000:
             # save the teacher_out and student_out into numpy files
-            import copy
-            np.save(f'teacher_out_loss.npy', copy.deepcopy(teacher_out[0].detach().cpu().numpy()))
-            np.save(f'student_out_loss.npy', copy.deepcopy(student_out[0].detach().cpu().numpy()))
+            # import copy
+            # np.save(f'teacher_out_loss.npy', copy.deepcopy(teacher_out[0].detach().cpu().numpy()))
+            # np.save(f'student_out_loss.npy', copy.deepcopy(student_out[0].detach().cpu().numpy()))
+            # self.counter += 1
+        # if self.counter == 1000:
+            # self.counter = 0
                     
         return total_loss
 

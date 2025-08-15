@@ -21,16 +21,15 @@ model:
 dino_head:
   use_bn: False
   in_dim: 768
-  # out_dim: 65536 # original value
   out_dim: 65536
 
 dino:
-  norm_last_layer: False # original value is True
+  norm_last_layer: True # original value is True
   momentum_teacher: 0.9995 # original value
-  # warmup_teacher_temp: 0.04 # original value
-  warmup_teacher_temp: 0.02
-  teacher_temp: 0.04 # original val
+  warmup_teacher_temp: 0.002 # original value
+  teacher_temp: 0.01 # original val
   warmup_teacher_temp_epochs: 30
+  center_momentum: 0.99
 
 training:
   use_fp16: True
@@ -52,9 +51,9 @@ optimizer:
   clip_grad: 3.0 # original value
 
 transforms:
-  local_crop_img_size: [64, 64, 64]
+  local_crop_img_size: [48, 48, 48]
   global_crops_scale: [0.4, 1.]
-  local_crops_number: 6
+  local_crops_number: 8
   local_crops_scale: [0.05, 0.4]
   orientation: "RAS"
   spacing: [1.75, 1.75, 1.75]

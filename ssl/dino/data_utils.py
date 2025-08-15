@@ -5,6 +5,7 @@ import torch
 import monai
 import pandas as pd
 import os
+import numpy as np
 
 class Solarizationd(monai.transforms.MapTransform):
     def __init__(self, keys, prob=0.5, threshold=0.5):
@@ -39,9 +40,8 @@ class MONAIDataAugmentationDINO:
         
         self.initial_crop = monai.transforms.RandSpatialCropd(
             keys=["image"],
-            roi_size=(96,96,96),
-            random_center=True,
-            prob=1.0
+            roi_size=(80,80,80),
+            random_center=True
         )
 
         self.first_trans = monai.transforms.Compose([
@@ -55,6 +55,14 @@ class MONAIDataAugmentationDINO:
         ])
         
         rand_trans = monai.transforms.Compose([
+            monai.transforms.RandRotate90d(keys=["image"], prob=0.5, spatial_axes=(1, 2)),
+            monai.transforms.RandAffined(
+                keys=["image"], prob=0.7,
+                translate_range=(5, 5, 5),
+                rotate_range=(np.pi/12, np.pi/12, np.pi/12),
+                scale_range=(0.1, 0.1, 0.1),
+                mode="bilinear"
+            ),
             monai.transforms.RandFlipd(keys=["image"], prob=0.5, spatial_axis=0),
             monai.transforms.RandFlipd(keys=["image"], prob=0.5, spatial_axis=1),
             monai.transforms.RandFlipd(keys=["image"], prob=0.5, spatial_axis=2),
